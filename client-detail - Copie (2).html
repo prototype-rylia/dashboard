@@ -1,0 +1,2561 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rylia — Fiche client</title>
+    <link rel="icon" type="image/png" href="logo-rylia.png">
+
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --primary:      #FF8C00;
+            --primary-soft: #FFF4E5;
+            --dark:         #111827;
+            --gray:         #6B7280;
+            --gray-light:   #F9FAFB;
+            --border:       #E5E7EB;
+            --white:        #FFFFFF;
+            --success:      #10B981;
+            --success-soft: #ECFDF5;
+            --danger:       #EF4444;
+            --danger-soft:  #FEF2F2;
+            --warning:      #F59E0B;
+            --warning-soft: #FEF3C7;
+            --radius:       12px;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--gray-light);
+            color: var(--dark);
+            min-height: 100vh;
+        }
+
+        /* ════════════════════════════
+           TOPBAR
+        ════════════════════════════ */
+        .topbar {
+            background: var(--white);
+            border-bottom: 1px solid var(--border);
+            padding: 0 32px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .topbar-left  { display: flex; align-items: center; gap: 16px; }
+        .topbar-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+        .topbar-name  { font-size: 16px; font-weight: 700; color: var(--dark); }
+
+        .topbar-sep { width: 1px; height: 22px; background: var(--border); }
+
+        .btn-back {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--gray);
+            background: none;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .btn-back:hover { color: var(--dark); border-color: #9CA3AF; background: var(--gray-light); }
+
+        .topbar-right { display: flex; align-items: center; gap: 12px; }
+
+        .user-badge {
+            font-size: 13px;
+            color: var(--gray);
+            background: var(--gray-light);
+            padding: 5px 10px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+        }
+
+        .btn-logout {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--gray);
+            background: none;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .btn-logout:hover { color: var(--dark); border-color: #9CA3AF; }
+
+        /* ════════════════════════════
+           HERO HEADER
+        ════════════════════════════ */
+        .hero {
+            background: linear-gradient(135deg, #FFF4E5 0%, #FFF0DC 100%);
+            border-bottom: 1px solid #FFD9A0;
+            padding: 36px 40px 32px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -60px; right: -60px;
+            width: 280px; height: 280px;
+            border-radius: 50%;
+            background: rgba(255,140,0,0.05);
+            pointer-events: none;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: -80px; right: 160px;
+            width: 200px; height: 200px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.04);
+            pointer-events: none;
+        }
+
+        .hero-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .hero-avatar {
+            width: 56px;
+            height: 56px;
+            background: var(--primary-soft);
+            border: 2px solid #FFD9A0;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            margin-bottom: 16px;
+            flex-shrink: 0;
+        }
+
+        .hero-title {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--dark);
+            line-height: 1.1;
+            margin-bottom: 8px;
+            letter-spacing: -0.3px;
+        }
+
+        .hero-meta {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .hero-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--gray);
+        }
+
+        .hero-badge {
+            background: var(--primary-soft);
+            border: 1px solid #FFD9A0;
+            color: var(--primary);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 20px;
+            letter-spacing: 0.04em;
+            display: inline-block;
+            margin-top: 14px;
+        }
+
+
+        /* ---- Hero compact (toutes les tabs) ---- */
+        .hero.compact {
+            padding: 14px 40px;
+        }
+
+        .hero.compact .hero-badge {
+            display: none;
+        }
+
+        .hero.compact .hero-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 9px;
+            font-size: 17px;
+            margin-bottom: 0;
+            flex-shrink: 0;
+        }
+
+        .hero.compact .hero-inner {
+            align-items: center;
+            gap: 14px;
+            flex-wrap: nowrap;
+        }
+
+        .hero.compact .hero-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 3px;
+        }
+
+        .hero.compact .hero-meta {
+            gap: 14px;
+        }
+
+        .hero.compact .hero-meta-item {
+            font-size: 12px;
+        }
+
+        @media (max-width: 700px) {
+            .hero.compact { padding: 12px 16px; }
+            .hero.compact .hero-inner { flex-wrap: wrap; }
+        }
+        /* ════════════════════════════
+           TABS NAV
+        ════════════════════════════ */
+        .tab-nav {
+            background: var(--white);
+            border-bottom: 1px solid var(--border);
+            padding: 0 40px;
+            display: flex;
+            gap: 0;
+            position: sticky;
+            top: 60px;
+            z-index: 90;
+        }
+
+        .tab-btn {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--gray);
+            padding: 14px 18px 12px;
+            cursor: pointer;
+            border: none;
+            border-bottom: 2px solid transparent;
+            background: none;
+            font-family: inherit;
+            transition: all 0.15s;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .tab-btn:hover { color: var(--dark); }
+
+        .tab-btn.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            font-weight: 600;
+        }
+
+        .tab-count {
+            background: var(--gray-light);
+            border: 1px solid var(--border);
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--gray);
+            padding: 1px 7px;
+            border-radius: 20px;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .tab-btn.active .tab-count {
+            background: var(--primary-soft);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        /* ════════════════════════════
+           PAGE BODY
+        ════════════════════════════ */
+        .page-body {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 40px;
+        }
+
+        .tab-section        { display: none; }
+        .tab-section.active { display: block; }
+
+        /* ════════════════════════════
+           KPI GRID
+        ════════════════════════════ */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+
+        @media (max-width: 800px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        .kpi-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px 22px;
+            transition: box-shadow 0.15s;
+        }
+
+        .kpi-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+        .kpi-card.accent  { border-left: 3px solid var(--primary); }
+        .kpi-card.success { border-left: 3px solid var(--success); }
+        .kpi-card.danger  { border-left: 3px solid var(--danger); }
+        .kpi-card.warn    { border-left: 3px solid var(--warning); }
+
+        .kpi-icon {
+            width: 36px; height: 36px;
+            border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 17px;
+            margin-bottom: 12px;
+            background: var(--primary-soft);
+        }
+
+        .kpi-icon.green  { background: var(--success-soft); }
+        .kpi-icon.red    { background: var(--danger-soft); }
+        .kpi-icon.yellow { background: var(--warning-soft); }
+
+        .kpi-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--gray);
+            margin-bottom: 5px;
+        }
+
+        .kpi-value {
+            font-size: 30px;
+            font-weight: 800;
+            color: var(--dark);
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .kpi-sub { font-size: 12px; color: var(--gray); }
+
+        /* ════════════════════════════
+           SECTION TITLES
+        ════════════════════════════ */
+        .section-title {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--gray);
+            margin-bottom: 14px;
+        }
+
+        /* ════════════════════════════
+           INFO CARDS
+        ════════════════════════════ */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+
+        @media (max-width: 800px) { .info-grid { grid-template-columns: 1fr 1fr; } }
+
+        .info-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px 18px;
+        }
+
+        .info-card-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--gray);
+            margin-bottom: 6px;
+        }
+
+        .info-card-val {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--dark);
+            word-break: break-all;
+        }
+
+        /* ════════════════════════════
+           MODULE CARDS
+        ════════════════════════════ */
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 14px;
+        }
+
+        .module-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px 22px;
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            transition: box-shadow 0.15s;
+        }
+
+        .module-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.07); }
+        .module-card.active-mod { border-left: 3px solid var(--primary); }
+
+        .module-card-icon {
+            width: 40px; height: 40px;
+            border-radius: 10px;
+            background: var(--primary-soft);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 19px;
+            flex-shrink: 0;
+        }
+
+        .module-card-icon.inactive { background: var(--gray-light); filter: grayscale(1); }
+
+        .module-card-body { flex: 1; }
+
+        .module-card-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 3px;
+        }
+
+        .module-card-desc { font-size: 12px; color: var(--gray); margin-bottom: 12px; }
+
+        .module-card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .module-price { font-size: 14px; font-weight: 700; color: var(--dark); }
+
+        /* Toggle switch */
+        .toggle-wrap { display: flex; align-items: center; gap: 8px; }
+
+        .toggle {
+            position: relative;
+            width: 40px; height: 22px;
+            flex-shrink: 0;
+        }
+
+        .toggle input { opacity: 0; width: 0; height: 0; }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: var(--border);
+            border-radius: 20px;
+            transition: 0.2s;
+        }
+
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            width: 16px; height: 16px;
+            left: 3px; top: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: 0.2s;
+        }
+
+        .toggle input:checked + .toggle-slider { background: var(--primary); }
+        .toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+        .toggle-label { font-size: 12px; font-weight: 600; color: var(--gray); }
+
+        .btn-save-modules {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 22px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.15s;
+            margin-top: 20px;
+        }
+
+        .btn-save-modules:hover { background: #E07000; }
+
+        .save-success {
+            display: none;
+            margin-top: 12px;
+            padding: 12px 16px;
+            background: var(--success-soft);
+            border-left: 3px solid var(--success);
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--success);
+        }
+
+        /* ════════════════════════════
+           TABLE générique
+        ════════════════════════════ */
+        .table-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .table-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            background: var(--gray-light);
+        }
+
+        .table-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--gray);
+        }
+
+        .table-wrap { overflow-x: auto; }
+
+        table { width: 100%; border-collapse: collapse; }
+
+        thead { background: var(--gray-light); border-bottom: 1px solid var(--border); }
+
+        th {
+            padding: 11px 16px;
+            text-align: left;
+            font-size: 11px;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: var(--gray);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 13px 16px;
+            font-size: 14px;
+            border-bottom: 1px solid var(--border);
+            color: var(--dark);
+            vertical-align: middle;
+        }
+
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover td { background: #FAFAFA; }
+
+        /* ════════════════════════════
+           INVOICE FORM
+        ════════════════════════════ */
+        .inv-form {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 22px 24px;
+            margin-bottom: 20px;
+        }
+
+        .inv-form-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr 1fr auto;
+            gap: 10px;
+            align-items: end;
+            margin-top: 14px;
+        }
+
+        @media (max-width: 860px) {
+            .inv-form-grid { grid-template-columns: 1fr 1fr; }
+        }
+
+        .form-field label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--gray);
+            margin-bottom: 6px;
+        }
+
+        .form-field input,
+        .form-field select {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            color: var(--dark);
+            background: var(--gray-light);
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-field input:focus,
+        .form-field select:focus {
+            border-color: var(--primary);
+            background: var(--white);
+            box-shadow: 0 0 0 3px rgba(255,140,0,0.1);
+        }
+
+        .btn-add {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 9px 18px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.15s;
+            white-space: nowrap;
+            height: 38px;
+        }
+
+        .btn-add:hover { background: #E07000; }
+
+        /* ════════════════════════════
+           BADGES
+        ════════════════════════════ */
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .badge-active   { background: var(--success-soft); color: #065F46; }
+        .badge-inactive { background: var(--gray-light);   color: var(--gray); }
+        .badge-attente  { background: var(--warning-soft); color: #92400E; }
+        .badge-reglee   { background: var(--success-soft); color: #065F46; }
+
+        /* ════════════════════════════
+           ACTION BUTTONS
+        ════════════════════════════ */
+        .btn-icon {
+            background: none;
+            border: 1.5px solid var(--border);
+            border-radius: 7px;
+            padding: 5px 9px;
+            cursor: pointer;
+            color: var(--gray);
+            font-size: 12px;
+            font-weight: 600;
+            font-family: inherit;
+            transition: all 0.15s;
+        }
+
+        .btn-icon:hover { background: var(--gray-light); color: var(--dark); border-color: #9CA3AF; }
+        .btn-icon.del:hover { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
+
+        /* ════════════════════════════
+           EMPTY STATE
+        ════════════════════════════ */
+        .empty-state {
+            padding: 56px 20px;
+            text-align: center;
+        }
+
+        .empty-icon {
+            width: 54px; height: 54px;
+            border-radius: 14px;
+            background: var(--gray-light);
+            border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px;
+            margin: 0 auto 16px;
+        }
+
+        .empty-title { font-size: 15px; font-weight: 700; color: var(--dark); margin-bottom: 5px; }
+        .empty-sub   { font-size: 13px; color: var(--gray); line-height: 1.5; }
+
+
+
+        /* ---- Champ invalide ---- */
+        .field-error input,
+        .field-error select {
+            border-color: var(--danger) !important;
+            background: var(--danger-soft) !important;
+            box-shadow: 0 0 0 3px rgba(239,68,68,0.1) !important;
+        }
+
+        .field-error-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--danger);
+            margin-top: 4px;
+            display: none;
+        }
+
+        .field-error .field-error-label { display: block; }
+
+        .upload-zone.zone-error {
+            border-color: var(--danger) !important;
+            background: var(--danger-soft) !important;
+        }
+
+        /* ---- Modale suppression avec mot de passe ---- */
+        .del-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(3px);
+        }
+
+        .del-modal-overlay.open { display: flex; }
+
+        .del-modal-box {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 32px 28px 24px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.18);
+            text-align: center;
+        }
+
+        .del-modal-icon {
+            width: 52px; height: 52px;
+            border-radius: 50%;
+            background: var(--danger-soft);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 18px;
+        }
+
+        .del-modal-title {
+            font-size: 17px;
+            font-weight: 800;
+            color: var(--dark);
+            margin-bottom: 6px;
+        }
+
+        .del-modal-sub {
+            font-size: 13px;
+            color: var(--gray);
+            margin-bottom: 22px;
+            line-height: 1.5;
+        }
+
+        .del-modal-field {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .del-modal-field label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--gray);
+            margin-bottom: 6px;
+        }
+
+        .del-modal-field input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            color: var(--dark);
+        }
+
+        .del-modal-field input:focus {
+            border-color: var(--danger);
+            box-shadow: 0 0 0 3px rgba(239,68,68,0.1);
+        }
+
+        .del-modal-error {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--danger);
+            margin-bottom: 14px;
+            display: none;
+        }
+
+        .del-modal-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-del-cancel {
+            flex: 1;
+            padding: 10px;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            background: none;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--gray);
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.15s;
+        }
+
+        .btn-del-cancel:hover { border-color: #9CA3AF; color: var(--dark); }
+
+        .btn-del-confirm {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: var(--danger);
+            font-size: 14px;
+            font-weight: 700;
+            color: white;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.15s;
+        }
+
+        .btn-del-confirm:hover { background: #DC2626; }
+        .btn-del-confirm:disabled { background: #D1D5DB; cursor: not-allowed; }
+
+        /* ════════════════════════════
+           FACTURATION AUTOMATIQUE
+        ════════════════════════════ */
+        .billing-section {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            margin-bottom: 20px;
+        }
+
+        .billing-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            background: var(--white);
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            font-family: inherit;
+            text-align: left;
+            transition: all 0.15s;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+
+        .billing-btn:last-child { margin-bottom: 0; }
+
+        .billing-btn:hover {
+            border-color: var(--primary);
+            background: var(--primary-soft);
+            box-shadow: 0 2px 10px rgba(255,140,0,0.1);
+        }
+
+        .billing-btn.done {
+            background: var(--success-soft);
+            border-color: #6EE7B7;
+            cursor: default;
+        }
+
+        .billing-btn-icon {
+            font-size: 20px;
+            width: 38px; height: 38px;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--primary-soft);
+            border-radius: 9px;
+            flex-shrink: 0;
+        }
+
+        .billing-btn.done .billing-btn-icon { background: var(--success-soft); }
+
+        .billing-btn-info { flex: 1; }
+
+        .billing-btn-name {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 2px;
+        }
+
+        .billing-btn-sub { font-size: 12px; color: var(--gray); }
+        .billing-btn.done .billing-btn-sub { color: var(--success); font-weight: 600; }
+
+        .billing-btn-price {
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--primary);
+            flex-shrink: 0;
+            margin-right: 4px;
+        }
+
+        .billing-btn-price.done { color: var(--success); }
+
+        /* ── Preview modal ── */
+        .preview-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 9998;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(3px);
+        }
+
+        .preview-modal-overlay.open { display: flex; }
+
+        .preview-modal-box {
+            background: var(--white);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 520px;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.18);
+            overflow: hidden;
+        }
+
+        .preview-modal-header {
+            background: linear-gradient(135deg, #FF8C00, #E06200);
+            padding: 22px 26px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .preview-modal-header::before {
+            content: '';
+            position: absolute;
+            top: -30px; right: -30px;
+            width: 120px; height: 120px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+            pointer-events: none;
+        }
+
+        .preview-modal-title {
+            font-size: 17px;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 3px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .preview-modal-sub {
+            font-size: 12px;
+            color: rgba(255,255,255,0.78);
+            position: relative;
+            z-index: 1;
+        }
+
+        .preview-modal-body { padding: 22px 26px; }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .preview-block {
+            background: var(--gray-light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 11px 14px;
+        }
+
+        .preview-block.full { grid-column: 1 / -1; }
+
+        .preview-block-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--gray);
+            margin-bottom: 4px;
+        }
+
+        .preview-block-val {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .preview-montant-box {
+            background: var(--primary-soft);
+            border: 1.5px solid #FFD9A0;
+            border-radius: 10px;
+            padding: 14px 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .preview-montant-label { font-size: 13px; font-weight: 700; color: var(--dark); }
+        .preview-montant-val   { font-size: 22px; font-weight: 800; color: var(--primary); }
+
+        .preview-tva-mention {
+            font-size: 11px;
+            color: var(--gray);
+            margin-bottom: 14px;
+            font-style: italic;
+        }
+
+        .preview-send-status {
+            font-size: 13px;
+            font-weight: 600;
+            min-height: 20px;
+            margin-bottom: 4px;
+        }
+
+        .preview-modal-footer {
+            padding: 16px 26px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+            background: var(--gray-light);
+        }
+
+        .btn-confirm-send {
+            flex: 2;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+        }
+
+        .btn-confirm-send:hover:not(:disabled) { background: #E07000; }
+        .btn-confirm-send:disabled { background: #D1D5DB; cursor: not-allowed; }
+
+        .btn-preview-cancel {
+            flex: 1;
+            background: none;
+            color: var(--gray);
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.15s;
+        }
+
+        .btn-preview-cancel:hover { color: var(--dark); border-color: #9CA3AF; }
+
+        /* ════════════════════════════
+           UPLOAD ZONE
+        ════════════════════════════ */
+        .upload-zone {
+            margin-top: 14px;
+            border: 2px dashed var(--border);
+            border-radius: 10px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            background: var(--gray-light);
+            position: relative;
+        }
+
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--primary);
+            background: var(--primary-soft);
+        }
+
+        .upload-zone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        .upload-zone-icon {
+            width: 36px; height: 36px;
+            border-radius: 9px;
+            background: var(--primary-soft);
+            border: 1px solid #FFD9A0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 17px;
+            flex-shrink: 0;
+        }
+
+        .upload-zone-main { font-size: 13px; font-weight: 600; color: var(--dark); }
+        .upload-zone-sub  { font-size: 11px; color: var(--gray); margin-top: 2px; }
+        .upload-zone-name { font-size: 12px; font-weight: 600; color: var(--primary); margin-top: 4px; display: none; }
+
+        .upload-progress-wrap {
+            display: none;
+            margin-top: 10px;
+            background: var(--border);
+            border-radius: 20px;
+            height: 5px;
+            overflow: hidden;
+        }
+
+        .upload-progress-bar {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 20px;
+            width: 0%;
+            transition: width 0.15s;
+        }
+
+        /* ════════════════════════════
+           TOAST
+        ════════════════════════════ */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: var(--dark);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            z-index: 9999;
+            transition: transform 0.25s ease;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        .toast.show { transform: translateX(-50%) translateY(0); }
+
+        /* ════════════════════════════
+           ERROR / LOADING
+        ════════════════════════════ */
+        .loading-spinner {
+            width: 28px; height: 28px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 40px auto;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .error-msg {
+            display: none;
+            padding: 10px 14px;
+            background: var(--danger-soft);
+            border-left: 3px solid var(--danger);
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--danger);
+            margin-top: 10px;
+        }
+
+        /* ════════════════════════════
+           RESPONSIVE
+        ════════════════════════════ */
+        @media (max-width: 700px) {
+            .hero { padding: 24px 20px; }
+            .tab-nav { padding: 0 16px; overflow-x: auto; }
+            .page-body { padding: 20px 16px; }
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            .modules-grid { grid-template-columns: 1fr; }
+            .info-grid { grid-template-columns: 1fr 1fr; }
+            .topbar { padding: 0 16px; }
+            .user-badge { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+    <div class="topbar-left">
+        <a href="index.html" class="topbar-brand">
+            <img src="logo-rylia-transparent.png" width="32px" alt="Rylia">
+            <span class="topbar-name">Rylia</span>
+        </a>
+        <div class="topbar-sep"></div>
+        <a href="index.html" class="btn-back">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            Retour à l'accueil
+        </a>
+    </div>
+    <div class="topbar-right">
+        <span class="user-badge" id="admin-email">—</span>
+        <button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    </div>
+</header>
+
+<!-- HERO -->
+<div class="hero compact">
+    <div class="hero-inner">
+        <div>
+            <div class="hero-avatar" id="hero-avatar">🏢</div>
+            <h1 class="hero-title" id="hero-company">Chargement…</h1>
+            <div class="hero-meta">
+                <div class="hero-meta-item" id="hero-email">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                    <span>—</span>
+                </div>
+                <div class="hero-meta-item" id="hero-domain">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    <span>—</span>
+                </div>
+                <div class="hero-meta-item" id="hero-created">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <span>—</span>
+                </div>
+            </div>
+            <span class="hero-badge" id="hero-badge">Compte actif</span>
+        </div>
+    </div>
+</div>
+
+<!-- TABS -->
+<nav class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('overview', this)">
+        Vue d'ensemble
+    </button>
+    <button class="tab-btn" onclick="switchTab('modules', this)">
+        Modules
+        <span class="tab-count" id="count-modules">0</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('invoices', this)">
+        Factures
+        <span class="tab-count" id="count-invoices">0</span>
+    </button>
+</nav>
+
+<!-- PAGE BODY -->
+<div class="page-body">
+
+    <!-- ══ TAB : VUE D'ENSEMBLE ══ -->
+    <div id="tab-overview" class="tab-section active">
+
+        <!-- KPIs -->
+        <div class="kpi-grid">
+            <div class="kpi-card accent">
+                <div class="kpi-icon">🚀</div>
+                <div class="kpi-label">Solutions actives</div>
+                <div class="kpi-value" id="kpi-solutions">—</div>
+                <div class="kpi-sub">modules déployés</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon yellow">🧾</div>
+                <div class="kpi-label">Total factures</div>
+                <div class="kpi-value" id="kpi-total-inv">—</div>
+                <div class="kpi-sub">factures émises</div>
+            </div>
+            <div class="kpi-card danger">
+                <div class="kpi-icon red">⏳</div>
+                <div class="kpi-label">En attente</div>
+                <div class="kpi-value" id="kpi-attente">—</div>
+                <div class="kpi-sub">paiements en cours</div>
+            </div>
+            <div class="kpi-card success">
+                <div class="kpi-icon green">✅</div>
+                <div class="kpi-label">Réglées</div>
+                <div class="kpi-value" id="kpi-reglees">—</div>
+                <div class="kpi-sub">factures acquittées</div>
+            </div>
+        </div>
+
+        <!-- Infos compte -->
+        <div class="section-title">Informations du compte</div>
+        <div class="info-grid" id="info-grid">
+            <div class="info-card">
+                <div class="info-card-label">Email de connexion</div>
+                <div class="info-card-val" id="info-email">—</div>
+            </div>
+            <div class="info-card">
+                <div class="info-card-label">Nom de domaine</div>
+                <div class="info-card-val" id="info-domain">—</div>
+            </div>
+            <div class="info-card">
+                <div class="info-card-label">Entreprise</div>
+                <div class="info-card-val" id="info-company">—</div>
+            </div>
+            <div class="info-card">
+                <div class="info-card-label">Compte créé le</div>
+                <div class="info-card-val" id="info-created">—</div>
+            </div>
+            <div class="info-card">
+                <div class="info-card-label">Montant total facturé</div>
+                <div class="info-card-val" id="info-montant-total" style="color:var(--primary); font-size:16px;">—</div>
+            </div>
+            <div class="info-card">
+                <div class="info-card-label">Modules souscrits</div>
+                <div class="info-card-val" id="info-modules">—</div>
+            </div>
+        </div>
+
+        <!-- Dernières factures -->
+        <div class="section-title">Dernières factures</div>
+        <div class="table-card">
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>N° Facture</th>
+                            <th>Description</th>
+                            <th>Montant</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody id="overview-inv-table">
+                        <tr><td colspan="4" style="text-align:center;padding:24px;color:var(--gray);">Chargement…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ══ TAB : MODULES ══ -->
+    <div id="tab-modules" class="tab-section">
+
+        <div class="section-title" style="margin-bottom:16px;">Modules disponibles — activez ou désactivez selon l'abonnement</div>
+
+        <div class="modules-grid" id="modules-grid">
+            <!-- généré dynamiquement -->
+        </div>
+
+        <button class="btn-save-modules" onclick="saveModules()">Enregistrer les modifications</button>
+        <div class="save-success" id="save-success">✓ Modifications enregistrées avec succès !</div>
+
+    </div>
+
+    <!-- ══ TAB : FACTURES ══ -->
+    <div id="tab-invoices" class="tab-section">
+
+        <!-- KPIs factures -->
+        <div class="kpi-grid" style="margin-bottom:24px;">
+            <div class="kpi-card">
+                <div class="kpi-icon">🧾</div>
+                <div class="kpi-label">Total</div>
+                <div class="kpi-value" id="inv-kpi-total">0</div>
+                <div class="kpi-sub">factures émises</div>
+            </div>
+            <div class="kpi-card danger">
+                <div class="kpi-icon red">⏳</div>
+                <div class="kpi-label">En attente</div>
+                <div class="kpi-value" id="inv-kpi-attente">0</div>
+                <div class="kpi-sub">à régler</div>
+            </div>
+            <div class="kpi-card success">
+                <div class="kpi-icon green">✅</div>
+                <div class="kpi-label">Réglées</div>
+                <div class="kpi-value" id="inv-kpi-reglees">0</div>
+                <div class="kpi-sub">acquittées</div>
+            </div>
+            <div class="kpi-card accent">
+                <div class="kpi-icon">💰</div>
+                <div class="kpi-label">Montant total</div>
+                <div class="kpi-value" id="inv-kpi-montant" style="font-size:20px;">0€</div>
+                <div class="kpi-sub">cumulé</div>
+            </div>
+        </div>
+
+        <!-- FACTURATION DU MOIS -->
+        <div class="billing-section">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                <div>
+                    <div class="section-title" style="margin-bottom:3px;">Facturation du mois en cours</div>
+                    <div style="font-size:12px;color:var(--gray);" id="billing-periode-label">Chargement…</div>
+                </div>
+            </div>
+            <div id="billing-buttons">
+                <div style="font-size:13px;color:var(--gray);font-style:italic;">Chargement des modules…</div>
+            </div>
+        </div>
+
+        <!-- Formulaire ajout -->
+        <div class="inv-form">
+            <div class="section-title">Ajouter une facture</div>
+            <div class="inv-form-grid">
+                <div class="form-field" id="field-numero">
+                    <label>N° Facture <span style="color:var(--danger);">*</span></label>
+                    <input type="text" id="inv-numero" placeholder="2026-001" oninput="document.getElementById('field-numero').classList.remove('field-error')">
+                    <span class="field-error-label">Champ obligatoire</span>
+                </div>
+                <div class="form-field" id="field-description">
+                    <label>Description <span style="color:var(--danger);">*</span></label>
+                    <input type="text" id="inv-description" placeholder="Libellé de la facture" oninput="document.getElementById('field-description').classList.remove('field-error')">
+                    <span class="field-error-label">Champ obligatoire</span>
+                </div>
+                <div class="form-field" id="field-montant">
+                    <label>Montant (€) <span style="color:var(--danger);">*</span></label>
+                    <input type="number" id="inv-montant" placeholder="34.90" step="0.01" min="0" oninput="document.getElementById('field-montant').classList.remove('field-error')">
+                    <span class="field-error-label">Champ obligatoire</span>
+                </div>
+                <div class="form-field" id="field-statut">
+                    <label>Statut <span style="color:var(--danger);">*</span></label>
+                    <select id="inv-statut" onchange="document.getElementById('field-statut').classList.remove('field-error')">
+                        <option value="">-- Choisir --</option>
+                        <option value="attente">En attente</option>
+                        <option value="reglee">Réglée</option>
+                    </select>
+                    <span class="field-error-label">Champ obligatoire</span>
+                </div>
+                <button class="btn-add" onclick="addInvoice()">+ Ajouter</button>
+            </div>
+
+            <!-- Zone dépôt fichier (obligatoire) -->
+            <div class="upload-zone" id="upload-zone"
+                 ondragover="event.preventDefault(); this.classList.add('dragover')"
+                 ondragleave="this.classList.remove('dragover')"
+                 ondrop="onFileDrop(event)">
+                <input type="file" id="inv-file" accept=".pdf,.png,.jpg,.jpeg,.webp"
+                       onchange="onFileSelect(this)">
+                <div class="upload-zone-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF8C00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="upload-zone-main">Joindre un fichier (obligatoire)</div>
+                    <div class="upload-zone-sub">PDF, PNG, JPG — max 10 Mo — glissez ou cliquez</div>
+                    <div class="upload-zone-name" id="upload-zone-name"></div>
+                </div>
+            </div>
+            <div class="upload-progress-wrap" id="upload-progress-wrap">
+                <div class="upload-progress-bar" id="upload-progress-bar"></div>
+            </div>
+
+            <div class="error-msg" id="inv-error"></div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-card">
+            <div class="table-header">
+                <span class="table-label">Historique des factures</span>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>N° Facture</th>
+                            <th>Description</th>
+                            <th>Montant</th>
+                            <th>Statut</th>
+                            <th>Fichier</th>
+                            <th style="text-align:right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inv-tbody">
+                        <tr><td colspan="5" style="text-align:center;padding:24px;color:var(--gray);">Chargement…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+</div><!-- /page-body -->
+
+
+
+<!-- PREVIEW MODAL FACTURATION -->
+<div class="preview-modal-overlay" id="billing-preview-modal">
+    <div class="preview-modal-box">
+        <div class="preview-modal-header">
+            <div class="preview-modal-title">Prévisualisation de la facture</div>
+            <div class="preview-modal-sub">Vérifiez les informations avant d'envoyer</div>
+        </div>
+        <div class="preview-modal-body">
+
+            <!-- Montant mis en avant -->
+            <div class="preview-montant-box">
+                <div>
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--gray);margin-bottom:3px;">Module</div>
+                    <div class="preview-montant-label" id="prev-module">—</div>
+                </div>
+                <div class="preview-montant-val" id="prev-montant">—</div>
+            </div>
+
+            <!-- Grid infos -->
+            <div class="preview-grid">
+                <div class="preview-block">
+                    <div class="preview-block-label">N° Facture</div>
+                    <div class="preview-block-val" id="prev-numero">—</div>
+                </div>
+                <div class="preview-block">
+                    <div class="preview-block-label">Période</div>
+                    <div class="preview-block-val" id="prev-periode">—</div>
+                </div>
+                <div class="preview-block">
+                    <div class="preview-block-label">Client</div>
+                    <div class="preview-block-val" id="prev-client-name">—</div>
+                </div>
+                <div class="preview-block">
+                    <div class="preview-block-label">Email client</div>
+                    <div class="preview-block-val" id="prev-client-email" style="font-size:12px;">—</div>
+                </div>
+                <div class="preview-block full">
+                    <div class="preview-block-label">Émetteur</div>
+                    <div class="preview-block-val" id="prev-rylia-name">Cyrille THEMONT (RYLIA)</div>
+                    <div style="font-size:11px;color:var(--gray);margin-top:2px;" id="prev-rylia-address">47 rue Vivienne, 75002 Paris</div>
+                    <div style="font-size:11px;color:var(--gray);" id="prev-rylia-siret">SIRET : 102 290 921 00018</div>
+                </div>
+            </div>
+
+            <div class="preview-tva-mention">TVA non applicable — art. 293B du CGI (micro-entreprise)</div>
+            <div class="preview-send-status" id="prev-send-status"></div>
+        </div>
+        <div class="preview-modal-footer">
+            <button class="btn-preview-cancel" onclick="closePreviewModal()">Annuler</button>
+            <button class="btn-confirm-send" id="btn-confirm-send" onclick="confirmAndSend()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Confirmer et envoyer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- MODALE SUPPRESSION AVEC MOT DE PASSE -->
+<div class="del-modal-overlay" id="del-modal">
+    <div class="del-modal-box">
+        <div class="del-modal-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+                <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+            </svg>
+        </div>
+        <div class="del-modal-title">Supprimer cette facture ?</div>
+        <div class="del-modal-sub" id="del-modal-sub">Cette action est irréversible.<br>Confirmez avec votre mot de passe admin.</div>
+        <div class="del-modal-field">
+            <label>Mot de passe admin</label>
+            <input type="password" id="del-pwd" placeholder="Votre mot de passe"
+                   onkeydown="if(event.key==='Enter') confirmDeleteWithPassword()">
+        </div>
+        <div class="del-modal-error" id="del-modal-error"></div>
+        <div class="del-modal-actions">
+            <button class="btn-del-cancel" onclick="closeDeleteModal()">Annuler</button>
+            <button class="btn-del-confirm" id="btn-del-confirm" onclick="confirmDeleteWithPassword()">Supprimer</button>
+        </div>
+    </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+    // ════════════════════════════════════════
+    //  FIREBASE
+    // ════════════════════════════════════════
+    const firebaseConfig = {
+        apiKey:            "AIzaSyDzd25u43H8emNyh3zVSybFT5xp_APB3HU",
+        authDomain:        "dash-board-rylia.firebaseapp.com",
+        projectId:         "dash-board-rylia",
+        storageBucket:     "dash-board-rylia.firebasestorage.app",
+        messagingSenderId: "404463950207",
+        appId:             "1:404463950207:web:4691e48ab3abaa1285e24a"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth    = firebase.auth();
+    const db      = firebase.firestore();
+    const storage = firebase.storage();
+
+    // ════════════════════════════════════════
+    //  INIT
+    // ════════════════════════════════════════
+    const params   = new URLSearchParams(window.location.search);
+    const clientId = params.get("id");
+
+    let clientData    = {};
+    let allInvoices   = [];
+    let invUnsub      = null;
+    let pendingModules = null;   // état toggle local avant sauvegarde
+
+    const MODULE_INFO = {
+        "Site Internet":  { icon: "🌐", prix: "39,90€/mois", desc: "Site vitrine professionnel" },
+        "Carte Digitale": { icon: "💳", prix: "29,90€/mois", desc: "Carte de visite numérique" },
+        "Roue d'Avis":    { icon: "⭐", prix: "34,90€/mois", desc: "Collecte d'avis automatisée" },
+        "Web Fidelite":   { icon: "🎁", prix: "39,90€/mois", desc: "Programme de fidélité en ligne" }
+    };
+
+    const ALL_MODULES = Object.keys(MODULE_INFO);
+
+    // Garde admin
+    auth.onAuthStateChanged(async user => {
+        if (!user) { window.location.href = "login.html"; return; }
+
+        const snap = await db.collection("users").doc(user.uid).get();
+        if (!snap.exists || snap.data().role !== "admin") {
+            window.location.href = "index.html";
+            return;
+        }
+
+        document.getElementById("admin-email").textContent = snap.data().email || user.email;
+
+        if (!clientId) { window.location.href = "index.html"; return; }
+
+        loadClientData();
+        loadInvoices();
+    });
+
+    // ════════════════════════════════════════
+    //  CHARGEMENT CLIENT
+    // ════════════════════════════════════════
+    async function loadClientData() {
+        try {
+            const snap = await db.collection("users").doc(clientId).get();
+            if (!snap.exists) { window.location.href = "index.html"; return; }
+
+            clientData = snap.data();
+            const modules = clientData.modules || [];
+
+            // Hero
+            document.getElementById("hero-company").textContent = clientData.companyName || "—";
+            document.getElementById("hero-email").querySelector("span").textContent   = clientData.email      || "—";
+            document.getElementById("hero-domain").querySelector("span").textContent  = clientData.domainName || "—";
+
+            const createdDate = clientData.createdAt
+                ? new Date(clientData.createdAt).toLocaleDateString("fr-FR", { day:"2-digit", month:"long", year:"numeric" })
+                : "—";
+            document.getElementById("hero-created").querySelector("span").textContent = "Client depuis " + createdDate;
+            document.title = "Rylia — " + (clientData.companyName || "Client");
+
+            // Tab count modules
+            document.getElementById("count-modules").textContent = modules.length;
+
+            // KPI
+            document.getElementById("kpi-solutions").textContent = modules.length;
+
+            // Info overview
+            document.getElementById("info-email").textContent   = clientData.email      || "—";
+            document.getElementById("info-domain").textContent  = clientData.domainName || "—";
+            document.getElementById("info-company").textContent = clientData.companyName || "—";
+            document.getElementById("info-created").textContent = createdDate;
+            document.getElementById("info-modules").textContent = modules.length > 0 ? modules.join(", ") : "Aucun module actif";
+
+            // Render modules grid
+            pendingModules = [...modules];
+            renderModulesGrid(pendingModules);
+
+        } catch(e) {
+            console.error("Erreur client:", e);
+        }
+    }
+
+    // ════════════════════════════════════════
+    //  MODULES
+    // ════════════════════════════════════════
+    function renderModulesGrid(activeModules) {
+        const grid = document.getElementById("modules-grid");
+        grid.innerHTML = ALL_MODULES.map(m => {
+            const info   = MODULE_INFO[m];
+            const active = activeModules.includes(m);
+            const key    = m.replace(/[^a-z]/gi, "-");
+            return `
+            <div class="module-card ${active ? 'active-mod' : ''}">
+                <div class="module-card-icon ${active ? '' : 'inactive'}">${info.icon}</div>
+                <div class="module-card-body">
+                    <div class="module-card-name">${m}</div>
+                    <div class="module-card-desc">${info.desc}</div>
+                    <div class="module-card-footer">
+                        <span class="module-price">${info.prix}</span>
+                        <div class="toggle-wrap">
+                            <label class="toggle">
+                                <input type="checkbox" id="toggle-${key}" ${active ? 'checked' : ''} onchange="onToggleModule('${m}', this.checked)">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="toggle-label" id="toggle-label-${key}">${active ? 'Actif' : 'Inactif'}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }).join("");
+    }
+
+    function onToggleModule(moduleName, checked) {
+        if (checked) {
+            if (!pendingModules.includes(moduleName)) pendingModules.push(moduleName);
+        } else {
+            pendingModules = pendingModules.filter(m => m !== moduleName);
+        }
+        const key   = moduleName.replace(/[^a-z]/gi, "-");
+        const label = document.getElementById("toggle-label-" + key);
+        if (label) label.textContent = checked ? "Actif" : "Inactif";
+
+        // Mettre à jour la card visuellement
+        renderModulesGrid(pendingModules);
+        // Re-bind toggles
+        ALL_MODULES.forEach(m => {
+            const k  = m.replace(/[^a-z]/gi, "-");
+            const cb = document.getElementById("toggle-" + k);
+            if (cb) cb.addEventListener("change", e => onToggleModule(m, e.target.checked));
+        });
+    }
+
+    async function saveModules() {
+        const btn = document.querySelector(".btn-save-modules");
+        const ok  = document.getElementById("save-success");
+        btn.textContent = "Enregistrement…";
+        btn.style.opacity = "0.7";
+        try {
+            await db.collection("users").doc(clientId).update({ modules: pendingModules });
+            clientData.modules = pendingModules;
+            document.getElementById("kpi-solutions").textContent   = pendingModules.length;
+            document.getElementById("count-modules").textContent    = pendingModules.length;
+            document.getElementById("info-modules").textContent     = pendingModules.length > 0 ? pendingModules.join(", ") : "Aucun module actif";
+            btn.textContent = "Enregistrer les modifications";
+            btn.style.opacity = "1";
+            ok.style.display = "block";
+            setTimeout(() => ok.style.display = "none", 3000);
+            showToast("Modules mis à jour !");
+        } catch(e) {
+            console.error(e);
+            btn.textContent = "Enregistrer les modifications";
+            btn.style.opacity = "1";
+            showToast("Erreur lors de la sauvegarde.");
+        }
+    }
+
+    // ════════════════════════════════════════
+    //  FACTURES
+    // ════════════════════════════════════════
+    function loadInvoices() {
+        if (invUnsub) invUnsub();
+        invUnsub = db.collection("users").doc(clientId)
+            .collection("invoices")
+            .orderBy("createdAt", "desc")
+            .onSnapshot(snap => {
+                allInvoices = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderInvoices();
+            }, err => {
+                console.error("Invoices:", err);
+                document.getElementById("inv-tbody").innerHTML =
+                    '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--danger);">Erreur de chargement.</td></tr>';
+            });
+    }
+
+    function renderInvoices() {
+        const total   = allInvoices.length;
+        const attente = allInvoices.filter(i => i.statut === "attente").length;
+        const reglees = allInvoices.filter(i => i.statut === "reglee").length;
+        const montant = allInvoices.reduce((s, i) => s + (parseFloat(i.montant) || 0), 0);
+
+        // KPIs tab factures
+        document.getElementById("inv-kpi-total").textContent   = total;
+        document.getElementById("inv-kpi-attente").textContent = attente;
+        document.getElementById("inv-kpi-reglees").textContent = reglees;
+        document.getElementById("inv-kpi-montant").textContent = montant.toFixed(2) + "€";
+
+        // KPIs overview + tab count
+        document.getElementById("kpi-total-inv").textContent = total;
+        document.getElementById("kpi-attente").textContent   = attente;
+        document.getElementById("kpi-reglees").textContent   = reglees;
+        document.getElementById("count-invoices").textContent = total;
+        document.getElementById("info-montant-total").textContent = montant.toFixed(2) + " €";
+
+        // Table principale
+        const tbody = document.getElementById("inv-tbody");
+        if (total === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="padding:0;border:none;">
+                <div class="empty-state">
+                    <div class="empty-icon">🧾</div>
+                    <div class="empty-title">Aucune facture pour le moment</div>
+                    <div class="empty-sub">Utilisez le formulaire ci-dessus pour ajouter une première facture.</div>
+                </div></td></tr>`;
+        } else {
+            tbody.innerHTML = allInvoices.map(inv => {
+                const b = inv.statut === "reglee"
+                    ? '<span class="badge badge-reglee">Réglée</span>'
+                    : '<span class="badge badge-attente">En attente</span>';
+                const fileCell = inv.fileUrl
+                    ? `<a href="${inv.fileUrl}" target="_blank" rel="noopener"
+                           class="btn-icon" style="text-decoration:none; display:inline-flex; align-items:center; gap:5px;">
+                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                           ${esc(inv.fileName || "Télécharger")}
+                       </a>`
+                    : '<span style="color:var(--gray);font-size:12px;">—</span>';
+                const sp = inv.storagePath ? inv.storagePath.replace(/'/g, "\'") : '';
+                return `<tr>
+                    <td style="font-family:monospace;font-size:13px;">${esc(inv.numero||"—")}</td>
+                    <td>${esc(inv.description||"—")}</td>
+                    <td style="font-weight:700;">${parseFloat(inv.montant||0).toFixed(2)} €</td>
+                    <td>${b}</td>
+                    <td>${fileCell}</td>
+                    <td style="text-align:right; white-space:nowrap;">
+                        <button class="btn-icon" onclick="toggleInvoiceStatus('${inv.id}','${inv.statut}')">
+                            ${inv.statut === "reglee" ? "↩ Attente" : "✓ Réglée"}
+                        </button>
+                        &nbsp;
+                        <button class="btn-icon del" onclick="deleteInvoice('${inv.id}','${sp}')">Suppr.</button>
+                    </td>
+                </tr>`;
+            }).join("");
+        }
+
+        // Mettre à jour les boutons de facturation
+        renderBillingButtons();
+
+        // Table résumé overview (3 dernières)
+        const ovTbody = document.getElementById("overview-inv-table");
+        const recent  = allInvoices.slice(0, 5);
+        if (recent.length === 0) {
+            ovTbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--gray);font-style:italic;">Aucune facture.</td></tr>`;
+        } else {
+            ovTbody.innerHTML = recent.map(inv => {
+                const b = inv.statut === "reglee"
+                    ? '<span class="badge badge-reglee">Réglée</span>'
+                    : '<span class="badge badge-attente">En attente</span>';
+                return `<tr>
+                    <td style="font-family:monospace;font-size:13px;">${esc(inv.numero||"—")}</td>
+                    <td>${esc(inv.description||"—")}</td>
+                    <td style="font-weight:700;">${parseFloat(inv.montant||0).toFixed(2)} €</td>
+                    <td>${b}</td>
+                </tr>`;
+            }).join("");
+        }
+    }
+
+    // ─── Gestion fichier ───
+    let selectedFile = null;
+
+    function onFileSelect(input) {
+        selectedFile = input.files[0] || null;
+        updateFileLabel();
+    }
+
+    function onFileDrop(e) {
+        e.preventDefault();
+        document.getElementById("upload-zone").classList.remove("dragover");
+        selectedFile = e.dataTransfer.files[0] || null;
+        updateFileLabel();
+    }
+
+    function updateFileLabel() {
+        const lbl  = document.getElementById("upload-zone-name");
+        const zone = document.getElementById("upload-zone");
+        if (selectedFile) {
+            lbl.textContent = selectedFile.name;
+            lbl.style.display = "block";
+            zone.classList.remove("zone-error");
+        } else {
+            lbl.style.display = "none";
+        }
+    }
+
+    function clearFieldErrors() {
+        ["field-numero","field-description","field-montant","field-statut"].forEach(id => {
+            document.getElementById(id).classList.remove("field-error");
+        });
+        document.getElementById("upload-zone").classList.remove("zone-error");
+        document.getElementById("inv-error").style.display = "none";
+    }
+
+    async function addInvoice() {
+        const numero      = document.getElementById("inv-numero").value.trim();
+        const description = document.getElementById("inv-description").value.trim();
+        const montant     = document.getElementById("inv-montant").value.trim();
+        const statut      = document.getElementById("inv-statut").value;
+        const errEl       = document.getElementById("inv-error");
+
+        // ── Validation champ par champ ──
+        clearFieldErrors();
+        let hasError = false;
+
+        if (!numero) {
+            document.getElementById("field-numero").classList.add("field-error");
+            hasError = true;
+        }
+        if (!description) {
+            document.getElementById("field-description").classList.add("field-error");
+            hasError = true;
+        }
+        if (!montant || parseFloat(montant) <= 0) {
+            document.getElementById("field-montant").classList.add("field-error");
+            hasError = true;
+        }
+        if (!statut) {
+            document.getElementById("field-statut").classList.add("field-error");
+            hasError = true;
+        }
+        if (!selectedFile) {
+            document.getElementById("upload-zone").classList.add("zone-error");
+            hasError = true;
+        }
+
+        if (hasError) {
+            errEl.textContent = "Veuillez compléter tous les champs et joindre un fichier.";
+            errEl.style.display = "block";
+            return;
+        }
+
+        const btn = document.querySelector(".btn-add");
+        btn.textContent = "Ajout…"; btn.style.opacity = "0.7";
+
+        try {
+            let fileUrl = null, fileName = null, storagePath = null;
+
+            // ── Upload fichier si présent ──
+            if (selectedFile) {
+                if (selectedFile.size > 10 * 1024 * 1024) {
+                    errEl.textContent = "Fichier trop volumineux (max 10 Mo).";
+                    errEl.style.display = "block";
+                    btn.textContent = "+ Ajouter"; btn.style.opacity = "1";
+                    return;
+                }
+                const ext      = selectedFile.name.split(".").pop().toLowerCase();
+                const safeName = numero.replace(/[^a-zA-Z0-9]/g, "-");
+                storagePath    = `invoices/${clientId}/${Date.now()}_${safeName}.${ext}`;
+
+                const wrap = document.getElementById("upload-progress-wrap");
+                const bar  = document.getElementById("upload-progress-bar");
+                wrap.style.display = "block";
+
+                await new Promise((resolve, reject) => {
+                    const task = storage.ref(storagePath).put(selectedFile);
+                    task.on("state_changed",
+                        snap => { bar.style.width = (snap.bytesTransferred / snap.totalBytes * 100) + "%"; },
+                        reject,
+                        resolve
+                    );
+                });
+
+                fileUrl  = await storage.ref(storagePath).getDownloadURL();
+                fileName = selectedFile.name;
+                wrap.style.display = "none";
+                bar.style.width = "0%";
+            }
+
+            // ── Enregistrer dans Firestore ──
+            const data = { numero, description, montant: parseFloat(montant), statut, createdAt: new Date().toISOString() };
+            if (fileUrl)      data.fileUrl      = fileUrl;
+            if (fileName)     data.fileName     = fileName;
+            if (storagePath)  data.storagePath  = storagePath;
+
+            await db.collection("users").doc(clientId).collection("invoices").add(data);
+
+            // ── Reset formulaire ──
+            ["inv-numero","inv-description","inv-montant"].forEach(id => {
+                document.getElementById(id).value = "";
+            });
+            document.getElementById("inv-statut").value = "attente";
+            document.getElementById("inv-file").value = "";
+            selectedFile = null;
+            updateFileLabel();
+            clearFieldErrors();
+            showToast("Facture ajoutée !");
+        } catch(e) {
+            console.error(e);
+            errEl.textContent = "Erreur lors de l'ajout. Réessayez.";
+            errEl.style.display = "block";
+        } finally {
+            btn.textContent = "+ Ajouter";
+            btn.style.opacity = "1";
+        }
+    }
+
+    async function toggleInvoiceStatus(invoiceId, currentStatut) {
+        const newStatut = currentStatut === "reglee" ? "attente" : "reglee";
+        try {
+            await db.collection("users").doc(clientId)
+                .collection("invoices").doc(invoiceId).update({ statut: newStatut });
+            showToast(newStatut === "reglee" ? "Facture marquée réglée." : "Remise en attente.");
+        } catch(e) {
+            console.error(e);
+            showToast("Erreur lors de la mise à jour.");
+        }
+    }
+
+    // ── Suppression sécurisée avec mot de passe ──
+    let pendingDeleteId   = null;
+    let pendingDeletePath = null;
+
+    function deleteInvoice(invoiceId, storagePath) {
+        pendingDeleteId   = invoiceId;
+        pendingDeletePath = storagePath || null;
+        document.getElementById("del-pwd").value = "";
+        document.getElementById("del-modal-error").style.display = "none";
+        document.getElementById("del-modal").classList.add("open");
+        setTimeout(() => document.getElementById("del-pwd").focus(), 100);
+    }
+
+    function closeDeleteModal() {
+        document.getElementById("del-modal").classList.remove("open");
+        pendingDeleteId   = null;
+        pendingDeletePath = null;
+        document.getElementById("del-pwd").value = "";
+        document.getElementById("del-modal-error").style.display = "none";
+    }
+
+    async function confirmDeleteWithPassword() {
+        const pwd    = document.getElementById("del-pwd").value;
+        const errEl  = document.getElementById("del-modal-error");
+        const btn    = document.getElementById("btn-del-confirm");
+
+        if (!pwd) {
+            errEl.textContent = "Veuillez saisir votre mot de passe.";
+            errEl.style.display = "block";
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = "Vérification…";
+        errEl.style.display = "none";
+
+        try {
+            // Ré-authentification Firebase
+            const user       = auth.currentUser;
+            const credential = firebase.auth.EmailAuthProvider.credential(user.email, pwd);
+            await user.reauthenticateWithCredential(credential);
+
+            // Mot de passe correct → supprimer
+            await db.collection("users").doc(clientId)
+                .collection("invoices").doc(pendingDeleteId).delete();
+            if (pendingDeletePath) {
+                try { await storage.ref(pendingDeletePath).delete(); } catch (_) {}
+            }
+
+            closeDeleteModal();
+            showToast("Facture supprimée.");
+        } catch(e) {
+            console.error(e);
+            const msg = (e.code === "auth/wrong-password" || e.code === "auth/invalid-credential")
+                ? "Mot de passe incorrect."
+                : "Erreur de vérification. Réessayez.";
+            errEl.textContent = msg;
+            errEl.style.display = "block";
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "Supprimer";
+        }
+    }
+
+    // Fermer en cliquant en dehors
+    document.getElementById("del-modal").addEventListener("click", function(e) {
+        if (e.target === this) closeDeleteModal();
+    });
+
+    // ════════════════════════════════════════
+    //  NAVIGATION TABS
+    // ════════════════════════════════════════
+    function switchTab(name, btnEl) {
+        document.querySelectorAll(".tab-section").forEach(s => s.classList.remove("active"));
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        const sec = document.getElementById("tab-" + name);
+        if (sec) sec.classList.add("active");
+        if (btnEl) btnEl.classList.add("active");
+    }
+
+    // ════════════════════════════════════════
+    //  UTILITAIRES
+    // ════════════════════════════════════════
+    async function handleLogout() {
+        await auth.signOut();
+        window.location.href = "login.html";
+    }
+
+    function esc(str) {
+        return String(str)
+            .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+            .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+
+    // ════════════════════════════════════════════════════════
+    //  SYSTÈME DE FACTURATION AUTOMATIQUE — RYLIA
+    // ════════════════════════════════════════════════════════
+
+    const BREVO_API_KEY = "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";
+
+    const RYLIA_INFO = {
+        name:    "Cyrille THEMONT (RYLIA)",
+        siret:   "102 290 921 00018",
+        address: "47 rue Vivienne",
+        zip:     "75002",
+        city:    "Paris",
+        email:   "contact@rylia.fr"
+    };
+
+    const MODULE_PRICES = {
+        "Site Internet":  39.90,
+        "Carte Digitale": 29.90,
+        "Roue d'Avis":    34.90,
+        "Web Fidelite":   39.90
+    };
+
+    function getCurrentPeriode() {
+        const n = new Date();
+        return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0");
+    }
+
+    function getPeriodeLabel(periode) {
+        const [year, month] = periode.split("-");
+        return new Date(year, parseInt(month) - 1, 1)
+            .toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+    }
+
+    async function getNextInvoiceNumber(periode) {
+        return await db.runTransaction(async tx => {
+            const ref = db.collection("users").doc("_settings");
+            const doc = await tx.get(ref);
+            const data = doc.exists ? doc.data() : {};
+            const counters = data.invoiceCounters || {};
+            const current = counters[periode] || 0;
+            const next = current + 1;
+            tx.set(ref, { invoiceCounters: Object.assign({}, counters, { [periode]: next }) }, { merge: true });
+            return "RYLIA-" + periode + "-" + String(next).padStart(3, "0");
+        });
+    }
+
+    function getAlreadyBilledModules(periode) {
+        const result = {};
+        allInvoices.forEach(inv => {
+            if (inv.periode === periode && inv.module && inv.auto) {
+                result[inv.module] = inv;
+            }
+        });
+        return result;
+    }
+
+    function renderBillingButtons() {
+        const container = document.getElementById("billing-buttons");
+        const periodeLabel = document.getElementById("billing-periode-label");
+        if (!container) return;
+
+        const modules = clientData.modules || [];
+        const periode = getCurrentPeriode();
+        const label   = getPeriodeLabel(periode);
+        if (periodeLabel) periodeLabel.textContent = label;
+
+        if (modules.length === 0) {
+            container.innerHTML = '<p style="font-size:13px;color:var(--gray);font-style:italic;">Aucun module actif — activez des modules dans l\'onglet Modules.</p>';
+            return;
+        }
+
+        const alreadyBilled = getAlreadyBilledModules(periode);
+
+        container.innerHTML = modules.map(function(module) {
+            const prix  = MODULE_PRICES[module] || 0;
+            const info  = MODULE_INFO[module] || { icon: "📦", desc: "" };
+            const billed = alreadyBilled[module];
+
+            if (billed) {
+                return '<div class="billing-btn done">'
+                    + '<span class="billing-btn-icon">' + info.icon + '</span>'
+                    + '<div class="billing-btn-info">'
+                    +   '<div class="billing-btn-name">' + esc(module) + '</div>'
+                    +   '<div class="billing-btn-sub">&#10003; Émise — ' + esc(billed.numero) + '</div>'
+                    + '</div>'
+                    + '<span class="billing-btn-price done">' + prix.toFixed(2) + ' €</span>'
+                    + '</div>';
+            }
+
+            const safeMod = module.replace(/[^a-zA-Z0-9 ]/g, function(ch){ return '&#' + ch.charCodeAt(0) + ';'; });
+            return '<button class="billing-btn" onclick="previewInvoice(&quot;' + safeMod + '&quot;)">'
+                + '<span class="billing-btn-icon">' + info.icon + '</span>'
+                + '<div class="billing-btn-info">'
+                +   '<div class="billing-btn-name">' + esc(module) + '</div>'
+                +   '<div class="billing-btn-sub">Facturer pour ' + label + '</div>'
+                + '</div>'
+                + '<span class="billing-btn-price">' + prix.toFixed(2) + ' €</span>'
+                + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:6px;flex-shrink:0;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'
+                + '</button>';
+        }).join("");
+    }
+
+    // ── Preview modal ──
+    let pendingBillingModule = null;
+
+    async function previewInvoice(module) {
+        const periode     = getCurrentPeriode();
+        const periodeLabel = getPeriodeLabel(periode);
+        const prix        = MODULE_PRICES[module] || 0;
+        const info        = MODULE_INFO[module] || { icon: "📦" };
+
+        const alreadyBilled = getAlreadyBilledModules(periode);
+        if (alreadyBilled[module]) {
+            showToast("Déjà facturé ce mois pour ce module.");
+            return;
+        }
+
+        pendingBillingModule = module;
+
+        document.getElementById("prev-module").textContent       = info.icon + " " + module;
+        document.getElementById("prev-montant").textContent      = prix.toFixed(2) + " €";
+        document.getElementById("prev-numero").textContent       = "RYLIA-" + periode + "-???";
+        document.getElementById("prev-periode").textContent      = periodeLabel;
+        document.getElementById("prev-client-name").textContent  = clientData.companyName || "—";
+        document.getElementById("prev-client-email").textContent = clientData.email || "—";
+        document.getElementById("prev-send-status").textContent  = "";
+        document.getElementById("prev-send-status").style.color  = "";
+
+        const btn = document.getElementById("btn-confirm-send");
+        btn.disabled = false;
+        btn.textContent = "Confirmer et envoyer";
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Confirmer et envoyer';
+
+        document.getElementById("billing-preview-modal").classList.add("open");
+    }
+
+    function closePreviewModal() {
+        document.getElementById("billing-preview-modal").classList.remove("open");
+        pendingBillingModule = null;
+    }
+
+    document.getElementById("billing-preview-modal").addEventListener("click", function(e) {
+        if (e.target === this) closePreviewModal();
+    });
+
+    async function confirmAndSend() {
+        if (!pendingBillingModule) return;
+        const module       = pendingBillingModule;
+        const periode      = getCurrentPeriode();
+        const periodeLabel = getPeriodeLabel(periode);
+        const prix         = MODULE_PRICES[module] || 0;
+
+        const btn    = document.getElementById("btn-confirm-send");
+        const status = document.getElementById("prev-send-status");
+        btn.disabled = true;
+        btn.textContent = "Vérification…";
+        status.textContent = "";
+
+        try {
+            // 1. Vérification doublon
+            const alreadyBilled = getAlreadyBilledModules(periode);
+            if (alreadyBilled[module]) {
+                status.textContent = "Déjà facturé ce mois pour ce module.";
+                status.style.color = "var(--warning)";
+                btn.disabled = false; btn.textContent = "Fermer";
+                return;
+            }
+
+            // 2. Numéro de facture
+            btn.textContent = "Numérotation…";
+            const numero = await getNextInvoiceNumber(periode);
+            document.getElementById("prev-numero").textContent = numero;
+
+            // 3. Génération PDF
+            btn.textContent = "Génération PDF…";
+            const pdfBase64 = await generateInvoicePdf(numero, module, prix, periode, periodeLabel);
+
+            // 4. Upload Storage
+            btn.textContent = "Upload…";
+            const fileName    = numero + ".pdf";
+            const storagePath = "invoices/" + clientId + "/" + fileName;
+            const pdfBytes    = Uint8Array.from(atob(pdfBase64), function(c) { return c.charCodeAt(0); });
+            const blob        = new Blob([pdfBytes], { type: "application/pdf" });
+
+            await new Promise(function(resolve, reject) {
+                storage.ref(storagePath).put(blob).on("state_changed", null, reject, resolve);
+            });
+            const fileUrl = await storage.ref(storagePath).getDownloadURL();
+
+            // 5. Sauvegarde Firestore
+            btn.textContent = "Enregistrement…";
+            const invoiceRef = await db.collection("users").doc(clientId).collection("invoices").add({
+                numero, module, periode,
+                description: "Abonnement " + module + " — " + periodeLabel,
+                montant: prix,
+                statut: "attente",
+                auto: true,
+                fileUrl, fileName, storagePath,
+                emailEnvoye: false,
+                createdAt: new Date().toISOString()
+            });
+
+            // 6. Email client
+            btn.textContent = "Envoi email client…";
+            const emailSent = await sendBrevoEmail(
+                clientData.email,
+                clientData.companyName || clientData.email,
+                numero, module, prix, periodeLabel, pdfBase64, fileName
+            );
+
+            // 7. Mise à jour emailEnvoye
+            await invoiceRef.update({ emailEnvoye: emailSent, emailDate: new Date().toISOString() });
+
+            // 8. Log activité
+            await logActivity("facture_envoyee", module, numero, emailSent);
+
+            // 9. Email confirmation admin
+            btn.textContent = "Confirmation admin…";
+            await sendBrevoConfirmAdmin(numero, clientData.companyName || clientData.email, module, prix, periodeLabel, emailSent);
+
+            // 10. Succès
+            status.innerHTML = "<span style='color:var(--success);'>&#10003; Facture " + numero + " envoyée à " + esc(clientData.email) + "</span>";
+            btn.textContent = "Envoyée !";
+            setTimeout(function() { closePreviewModal(); }, 3000);
+            showToast("Facture " + numero + " envoyée !");
+
+        } catch(e) {
+            console.error("Erreur facturation:", e);
+            status.innerHTML = "<span style='color:var(--danger);'>Erreur : " + esc(e.message || "Réessayez.") + "</span>";
+            btn.disabled = false;
+            btn.innerHTML = "Réessayer";
+        }
+    }
+
+    async function generateInvoicePdf(numero, module, prix, periode, periodeLabel) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: "mm", format: "a4" });
+        const W = 210, H = 297;
+        const now = new Date();
+        const dateStr = now.toLocaleDateString("fr-FR");
+
+        // ═══ HEADER ORANGE ═══
+        doc.setFillColor(255, 140, 0);
+        doc.rect(0, 0, W, 46, "F");
+        doc.setFillColor(255, 157, 26);
+        doc.circle(W - 22, 8, 32, "F");
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(24); doc.setTextColor(255, 255, 255);
+        doc.text("RYLIA", 15, 18);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+        doc.text("Solutions digitales pour les professionnels", 15, 24);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(18); doc.setTextColor(255, 255, 255);
+        doc.text("FACTURE", W - 15, 14, { align: "right" });
+        doc.setFontSize(11);
+        doc.text(numero, W - 15, 21, { align: "right" });
+        doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+        doc.text("Date : " + dateStr, W - 15, 28, { align: "right" });
+        doc.text("Période : " + periodeLabel, W - 15, 34, { align: "right" });
+
+        // ═══ ÉMETTEUR ═══
+        var y = 56;
+        doc.setFont("helvetica", "bold"); doc.setFontSize(7);
+        doc.setTextColor(107, 114, 128);
+        doc.text("ÉMETTEUR", 15, y);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(11);
+        doc.setTextColor(17, 24, 39);
+        doc.text("Cyrille THEMONT (RYLIA)", 15, y + 6);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+        doc.setTextColor(107, 114, 128);
+        ["47 rue Vivienne", "75002, Paris", "contact@rylia.fr", "SIRET : 102 290 921 00018", "TVA non applicable — art. 293B du CGI"]
+        .forEach(function(line, i) { doc.text(line, 15, y + 12 + i * 5.5); });
+
+        // ═══ FACTURÉ À ═══
+        var rx = W / 2 + 5, rw = W / 2 - 20;
+        doc.setFillColor(249, 250, 251);
+        doc.roundedRect(rx, y - 3, rw, 45, 3, 3, "F");
+        doc.setDrawColor(229, 231, 235); doc.setLineWidth(0.3);
+        doc.roundedRect(rx, y - 3, rw, 45, 3, 3, "S");
+        doc.setFont("helvetica", "bold"); doc.setFontSize(7);
+        doc.setTextColor(107, 114, 128);
+        doc.text("FACTURÉ À", rx + 5, y);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(11);
+        doc.setTextColor(17, 24, 39);
+        doc.text(clientData.companyName || "—", rx + 5, y + 6);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+        doc.setTextColor(107, 114, 128);
+        var cLines = [clientData.email || "—"];
+        if (clientData.siret) cLines.push("SIRET : " + clientData.siret);
+        if (clientData.address) cLines.push(clientData.address);
+        var cpV = [];
+        if (clientData.zip) cpV.push(clientData.zip);
+        if (clientData.city) cpV.push(clientData.city);
+        if (cpV.length) cLines.push(cpV.join(" "));
+        if (clientData.phone) cLines.push("Tél : " + clientData.phone);
+        cLines.forEach(function(line, i) { doc.text(line, rx + 5, y + 12 + i * 5.5); });
+
+        // ═══ SÉPARATEUR ═══
+        y = 110;
+        doc.setDrawColor(229, 231, 235); doc.setLineWidth(0.4);
+        doc.line(15, y, W - 15, y);
+
+        // ═══ TABLEAU ═══
+        y += 6;
+        doc.setFillColor(17, 24, 39);
+        doc.rect(15, y, W - 30, 9, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(8);
+        doc.text("Description", 18, y + 5.5);
+        doc.text("Période", 120, y + 5.5);
+        doc.text("Montant", W - 18, y + 5.5, { align: "right" });
+        y += 9;
+        doc.setFillColor(255, 255, 255);
+        doc.rect(15, y, W - 30, 10, "F");
+        doc.setTextColor(17, 24, 39);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+        doc.text("Abonnement " + module, 18, y + 6);
+        doc.text(periodeLabel, 120, y + 6);
+        doc.setFont("helvetica", "bold");
+        doc.text(prix.toFixed(2) + " €", W - 18, y + 6, { align: "right" });
+        doc.setDrawColor(229, 231, 235); doc.setLineWidth(0.3);
+        doc.rect(15, y - 9, W - 30, 19, "S");
+
+        // ═══ NET À PAYER ═══
+        y += 17;
+        doc.setDrawColor(229, 231, 235);
+        doc.line(W - 80, y, W - 15, y);
+        y += 5;
+        doc.setFillColor(255, 140, 0);
+        doc.roundedRect(W - 80, y - 3, 65, 13, 3, 3, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+        doc.text("NET À PAYER", W - 76, y + 3.5);
+        doc.setFontSize(13);
+        doc.text(prix.toFixed(2) + " €", W - 17, y + 4.5, { align: "right" });
+
+        // ═══ MENTION TVA ═══
+        y += 16;
+        doc.setFont("helvetica", "italic"); doc.setFontSize(8);
+        doc.setTextColor(107, 114, 128);
+        doc.text("TVA non applicable — art. 293B du CGI", 15, y);
+
+        // ═══ FOOTER ═══
+        doc.setFillColor(17, 24, 39);
+        doc.rect(0, H - 20, W, 20, "F");
+        doc.setFont("helvetica", "normal"); doc.setFontSize(7.5);
+        doc.setTextColor(156, 163, 175);
+        doc.text("Cyrille THEMONT (RYLIA) — 47 Rue Vivienne, 75002 Paris — SIRET : 102 290 921 00018", W / 2, H - 13, { align: "center" });
+        doc.text("TVA non applicable, article 293B du CGI — contact@rylia.fr", W / 2, H - 8, { align: "center" });
+        doc.text("Document généré automatiquement le " + dateStr + " — rylia.fr", W / 2, H - 3, { align: "center" });
+
+        return doc.output("datauristring").split(",")[1];
+    }
+
+    async function sendBrevoEmail(toEmail, toName, numero, module, prix, periodeLabel, pdfBase64, fileName) {
+        try {
+            var resp = await fetch("https://api.brevo.com/v3/smtp/email", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "api-key": BREVO_API_KEY },
+                body: JSON.stringify({
+                    sender: { name: "Rylia", email: "contact@rylia.fr" },
+                    to: [{ email: toEmail, name: toName }],
+                    subject: "Votre facture Rylia — " + numero,
+                    htmlContent: "<div style=\"font-family:Segoe UI,sans-serif;max-width:600px;margin:0 auto;\"><div style=\"background:linear-gradient(135deg,#FF8C00,#E06200);padding:28px;border-radius:12px 12px 0 0;\"><h1 style=\"color:#fff;font-size:22px;margin:0;font-weight:800;\">RYLIA</h1><p style=\"color:rgba(255,255,255,.78);margin:6px 0 0;font-size:12px;\">Solutions digitales pour les professionnels</p></div><div style=\"background:#fff;padding:28px;border:1px solid #E5E7EB;border-top:none;\"><p style=\"font-size:15px;font-weight:600;color:#111827;\">Bonjour " + toName + ",</p><p style=\"color:#6B7280;font-size:14px;line-height:1.7;\">Veuillez trouver ci-joint votre facture <strong style=\"color:#111827;\">" + numero + "</strong> pour votre abonnement <strong style=\"color:#FF8C00;\">" + module + "</strong> — <strong>" + periodeLabel + "</strong>.</p><div style=\"background:#FFF4E5;border-left:3px solid #FF8C00;border-radius:8px;padding:14px 18px;margin:18px 0;\"><div style=\"font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#6B7280;margin-bottom:5px;\">Récapitulatif</div><div style=\"display:flex;justify-content:space-between;align-items:center;\"><span style=\"font-size:13px;color:#111827;\">" + module + " — " + periodeLabel + "</span><span style=\"font-size:18px;font-weight:800;color:#FF8C00;\">" + prix.toFixed(2) + " €</span></div><div style=\"font-size:11px;color:#9CA3AF;margin-top:3px;\">TVA non applicable — art. 293B du CGI</div></div><p style=\"color:#6B7280;font-size:13px;\">Le PDF est joint à cet email et disponible dans votre espace client.</p><hr style=\"border:none;border-top:1px solid #E5E7EB;margin:20px 0;\"><p style=\"color:#9CA3AF;font-size:11px;\">Questions ? <a href=\"mailto:contact@rylia.fr\" style=\"color:#FF8C00;\">contact@rylia.fr</a></p></div><div style=\"background:#111827;padding:14px 28px;text-align:center;border-radius:0 0 12px 12px;\"><p style=\"color:#9CA3AF;font-size:10px;margin:0;\">Cyrille THEMONT (RYLIA) — 47 rue Vivienne, 75002 Paris — SIRET : 102 290 921 00018</p></div></div>",
+                    attachment: [{ content: pdfBase64, name: fileName }]
+                })
+            });
+            return resp.ok;
+        } catch(e) {
+            console.error("Email error:", e);
+            return false;
+        }
+    }
+
+    async function sendBrevoConfirmAdmin(numero, clientName, module, prix, periodeLabel, emailSent) {
+        try {
+            await fetch("https://api.brevo.com/v3/smtp/email", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "api-key": BREVO_API_KEY },
+                body: JSON.stringify({
+                    sender: { name: "Rylia Dashboard", email: "contact@rylia.fr" },
+                    to: [{ email: "contact@rylia.fr", name: "Cyrille THEMONT" }],
+                    subject: "&#10003; Facture " + numero + " — " + clientName,
+                    htmlContent: "<div style=\"font-family:Segoe UI,sans-serif;max-width:480px;margin:0 auto;padding:24px;\"><h2 style=\"color:#FF8C00;margin-bottom:18px;\">&#10003; Confirmation d'envoi</h2><table style=\"width:100%;border-collapse:collapse;\"><tr><td style=\"padding:8px 0;color:#6B7280;font-size:13px;border-bottom:1px solid #E5E7EB;\">Facture</td><td style=\"padding:8px 0;font-weight:600;font-size:13px;border-bottom:1px solid #E5E7EB;\">" + numero + "</td></tr><tr><td style=\"padding:8px 0;color:#6B7280;font-size:13px;border-bottom:1px solid #E5E7EB;\">Client</td><td style=\"padding:8px 0;font-weight:600;font-size:13px;border-bottom:1px solid #E5E7EB;\">" + clientName + "</td></tr><tr><td style=\"padding:8px 0;color:#6B7280;font-size:13px;border-bottom:1px solid #E5E7EB;\">Module</td><td style=\"padding:8px 0;font-weight:600;font-size:13px;border-bottom:1px solid #E5E7EB;\">" + module + "</td></tr><tr><td style=\"padding:8px 0;color:#6B7280;font-size:13px;border-bottom:1px solid #E5E7EB;\">Montant</td><td style=\"padding:8px 0;font-weight:600;font-size:13px;border-bottom:1px solid #E5E7EB;\">" + prix.toFixed(2) + " €</td></tr><tr><td style=\"padding:8px 0;color:#6B7280;font-size:13px;border-bottom:1px solid #E5E7EB;\">Période</td><td style=\"padding:8px 0;font-weight:600;font-size:13px;border-bottom:1px solid #E5E7EB;\">" + periodeLabel + "</td></tr><tr><td style=\"padding:8px 0;color:#6B7280;font-size:13px;\">Email client</td><td style=\"padding:8px 0;font-weight:600;font-size:13px;\">" + (emailSent ? "&#10003; Envoyé" : "&#10007; Échec") + "</td></tr></table><p style=\"color:#9CA3AF;font-size:11px;margin-top:16px;\">Envoyé depuis Rylia Dashboard</p></div>"
+                })
+            });
+        } catch(e) { console.error("Admin email error:", e); }
+    }
+
+    async function logActivity(action, module, numero, emailSent) {
+        try {
+            await db.collection("users").doc(clientId).collection("activityLog").add({
+                action, module, numero,
+                emailEnvoye: emailSent,
+                adminEmail:  auth.currentUser ? auth.currentUser.email : "—",
+                timestamp:   new Date().toISOString()
+            });
+        } catch(e) { console.error("Log error:", e); }
+    }
+
+    // Détection URL param automodule (depuis index.html Factures à générer)
+    (function checkAutoModule() {
+        const params     = new URLSearchParams(window.location.search);
+        const autoModule = params.get("automodule");
+        const autoTab    = params.get("tab");
+        if (autoModule || autoTab === "invoices") {
+            // Attendre que les données soient chargées
+            var attempts = 0;
+            var interval = setInterval(function() {
+                attempts++;
+                if (attempts > 20) { clearInterval(interval); return; }
+                const invBtn = document.querySelector('.tab-btn[onclick*="invoices"]');
+                if (invBtn && clientData.modules) {
+                    switchTab("invoices", invBtn);
+                    clearInterval(interval);
+                    if (autoModule) {
+                        setTimeout(function() {
+                            previewInvoice(decodeURIComponent(autoModule));
+                        }, 600);
+                    }
+                }
+            }, 300);
+        }
+    })();
+
+    let toastTimer;
+    function showToast(msg) {
+        const t = document.getElementById("toast");
+        t.textContent = msg;
+        t.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove("show"), 2500);
+    }
+</script>
+
+</body>
+</html>

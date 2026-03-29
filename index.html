@@ -1,0 +1,3718 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rylia — Dashboard</title>
+    <link rel="icon" type="image/png" href="logo-rylia.png">
+
+    <!-- Firebase compat SDK (même version que roue-dashboard) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --primary:      #FF8C00;
+            --primary-soft: #FFF4E5;
+            --dark:         #111827;
+            --gray:         #6B7280;
+            --gray-light:   #F9FAFB;
+            --border:       #E5E7EB;
+            --white:        #FFFFFF;
+            --success:      #10B981;
+            --success-soft: #ECFDF5;
+            --danger:       #EF4444;
+            --danger-soft:  #FEF2F2;
+            --radius:       12px;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--gray-light);
+            color: var(--dark);
+            min-height: 100vh;
+        }
+
+        /* ---- Topbar ---- */
+        .topbar {
+            background: var(--white);
+            border-bottom: 1px solid var(--border);
+            padding: 0 32px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .topbar-brand { display: flex; align-items: center; gap: 10px; }
+        .topbar-name  { font-size: 16px; font-weight: 700; color: var(--dark); }
+        .topbar-right { display: flex; align-items: center; gap: 12px; }
+
+        .user-badge {
+            font-size: 13px;
+            color: var(--gray);
+            background: var(--gray-light);
+            padding: 5px 10px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+        }
+
+        .btn-logout {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--gray);
+            background: none;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .btn-logout:hover { color: var(--dark); border-color: #9CA3AF; }
+
+
+
+        /* ---- Autocomplétion adresse ---- */
+        .address-wrap { position: relative; }
+
+        .address-suggestions {
+            display: none;
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0; right: 0;
+            background: var(--white);
+            border: 1.5px solid var(--primary);
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.10);
+            z-index: 200;
+            overflow: hidden;
+        }
+
+        .address-suggestions.open { display: block; }
+
+        .address-suggestion-item {
+            padding: 10px 14px;
+            font-size: 13px;
+            cursor: pointer;
+            color: var(--dark);
+            border-bottom: 1px solid var(--border);
+            transition: background 0.1s;
+            line-height: 1.4;
+        }
+
+        .address-suggestion-item:last-child { border-bottom: none; }
+        .address-suggestion-item:hover { background: var(--primary-soft); color: var(--primary); }
+
+        .address-suggestion-item small {
+            display: block;
+            font-size: 11px;
+            color: var(--gray);
+            margin-top: 1px;
+        }
+
+        /* ════════ NAVBAR LABEL TAB ════════ */
+        .navbar-label {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--gray);
+            padding: 14px 16px 12px;
+            cursor: pointer;
+            border: none;
+            border-bottom: 2px solid transparent;
+            background: none;
+            font-family: inherit;
+            transition: all 0.15s;
+            white-space: nowrap;
+            padding-right: 20px;
+            margin-right: 4px;
+            border-right: 1.5px solid var(--border);
+        }
+
+        .navbar-label:hover { color: var(--dark); }
+
+        .navbar-label.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* ════════ PROFIL CLIENT ════════ */
+        .profile-header {
+            background: linear-gradient(135deg, #FFF4E5 0%, #FFF0DC 100%);
+            border: 1px solid #FFD9A0;
+            border-radius: var(--radius);
+            padding: 24px 28px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 28px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .profile-header::after {
+            content: '';
+            position: absolute;
+            top: -30px; right: -30px;
+            width: 140px; height: 140px;
+            border-radius: 50%;
+            background: rgba(255,140,0,0.06);
+            pointer-events: none;
+        }
+
+        .profile-avatar {
+            width: 54px; height: 54px;
+            border-radius: 14px;
+            background: var(--primary-soft);
+            border: 2px solid #FFD9A0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .profile-header-name {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--dark);
+            margin-bottom: 3px;
+        }
+
+        .profile-header-sub { font-size: 13px; color: var(--gray); }
+
+        .profile-section-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--gray);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .profile-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 600px) { .profile-grid { grid-template-columns: 1fr; } }
+
+        .profile-field {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 16px;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        .profile-field:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(255,140,0,0.08);
+        }
+
+        .profile-field.full { grid-column: 1 / -1; }
+
+        .profile-field label {
+            display: block;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--gray);
+            margin-bottom: 6px;
+        }
+
+        .profile-field input {
+            width: 100%;
+            border: none;
+            outline: none;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--dark);
+            font-family: inherit;
+            background: transparent;
+            padding: 0;
+        }
+
+        .profile-field input::placeholder { color: #C4C9D4; font-weight: 400; font-style: italic; }
+        .profile-field input[readonly]    { color: var(--gray); cursor: default; font-weight: 500; }
+
+        .btn-save-profile {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 11px 24px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.15s;
+        }
+
+        .btn-save-profile:hover { background: #E07000; }
+
+        .profile-save-ok {
+            display: none;
+            margin-left: 14px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--success);
+            vertical-align: middle;
+        }
+
+        /* ---- Tabs navigation ---- */
+        .navbar {
+            background: var(--white);
+            border-bottom: 1px solid var(--border);
+            padding: 0 32px;
+            display: flex;
+            gap: 4px;
+        }
+
+        .nav-tab {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--gray);
+            padding: 14px 16px 12px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            border-top: none; border-left: none; border-right: none;
+            transition: all 0.15s;
+            white-space: nowrap;
+            background: none;
+            font-family: inherit;
+        }
+
+        .nav-tab:hover { color: var(--dark); }
+
+        .nav-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* ---- Layout ---- */
+        .page { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+
+        .page-header   { margin-bottom: 28px; }
+        .page-title    { font-size: 22px; font-weight: 700; color: var(--dark); }
+        .page-subtitle { font-size: 14px; color: var(--gray); margin-top: 4px; }
+
+        .view-section        { display: none; }
+        .view-section.active { display: block; }
+
+        /* ---- KPI Grid (style dashboard) ---- */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .kpi-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 22px 24px;
+            transition: box-shadow 0.15s;
+        }
+
+        .kpi-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.07); }
+        .kpi-card.accent { border-left: 3px solid var(--primary); }
+
+        .kpi-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: var(--primary-soft);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            margin-bottom: 14px;
+        }
+
+        .kpi-icon.green  { background: var(--success-soft); }
+        .kpi-icon.gray   { background: var(--gray-light); }
+
+        .kpi-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--gray);
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            margin-bottom: 6px;
+        }
+
+        .kpi-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--dark);
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .kpi-sub {
+            font-size: 12px;
+            color: var(--gray);
+            margin-top: 4px;
+        }
+
+        /* ---- Welcome banner ---- */
+        .welcome-banner {
+            background: linear-gradient(135deg, #FF8C00 0%, #FF6B00 100%);
+            border-radius: var(--radius);
+            padding: 28px 32px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .welcome-banner::before {
+            content: '';
+            position: absolute;
+            top: -30px; right: -30px;
+            width: 160px; height: 160px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.07);
+        }
+
+        .welcome-banner::after {
+            content: '';
+            position: absolute;
+            bottom: -50px; right: 80px;
+            width: 120px; height: 120px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.05);
+        }
+
+        .welcome-banner-text { position: relative; z-index: 1; }
+
+        .welcome-banner-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 6px;
+        }
+
+        .welcome-banner-sub {
+            font-size: 14px;
+            color: rgba(255,255,255,0.82);
+            line-height: 1.5;
+        }
+
+        .welcome-badge {
+            background: rgba(255,255,255,0.18);
+            border: 1px solid rgba(255,255,255,0.25);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 20px;
+            margin-top: 12px;
+            display: inline-block;
+            letter-spacing: 0.04em;
+        }
+
+        /* ---- Info grid ---- */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .info-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 22px 24px;
+            transition: box-shadow 0.15s;
+        }
+
+        .info-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.07); }
+
+        .info-card-icon {
+            font-size: 22px;
+            margin-bottom: 12px;
+        }
+
+        .info-card-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 6px;
+        }
+
+        .info-card-body {
+            font-size: 13px;
+            color: var(--gray);
+            line-height: 1.6;
+        }
+
+        /* ---- Solutions cards ---- */
+        .solutions-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .card {
+            background: var(--white);
+            padding: 22px 24px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            transition: box-shadow 0.15s;
+        }
+
+        .card.accent { border-left: 3px solid var(--primary); }
+        .card:hover  { box-shadow: 0 4px 16px rgba(0,0,0,0.07); }
+
+        .card-module-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            background: var(--primary-soft);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            margin-bottom: 16px;
+        }
+
+        .card-label {
+            font-size: 11px;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: var(--gray);
+            margin-bottom: 6px;
+            font-weight: 700;
+        }
+
+        .card-title { font-weight: 700; font-size: 16px; color: var(--dark); margin-bottom: 8px; }
+        .card-body  { font-size: 13px; color: var(--gray); line-height: 1.6; }
+
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        .card-price {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .badge-active {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--success);
+            background: var(--success-soft);
+            padding: 3px 10px;
+            border-radius: 20px;
+            letter-spacing: 0.04em;
+        }
+
+        .badge-active::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--success);
+            display: inline-block;
+        }
+
+        /* ---- Block ---- */
+        .block {
+            background: var(--white);
+            border: 1px solid var(--border);
+            padding: 22px;
+            border-radius: var(--radius);
+        }
+
+        /* ---- Table ---- */
+        .table-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .table-topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            background: var(--gray-light);
+        }
+
+        .table-label {
+            font-size: 11px;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: var(--gray);
+            font-weight: 700;
+        }
+
+        .search-input {
+            font-family: inherit;
+            font-size: 14px;
+            padding: 8px 14px;
+            border: 1.5px solid var(--border);
+            background: var(--white);
+            color: var(--dark);
+            outline: none;
+            width: 240px;
+            border-radius: var(--radius);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(255,140,0,0.1);
+        }
+
+        .search-input::placeholder { color: #C4C9D4; }
+
+        /* ---- Empty state ---- */
+        .table-state {
+            padding: 60px 20px;
+            text-align: center;
+            color: var(--gray);
+        }
+
+        .table-state-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            background: var(--gray-light);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin: 0 auto 16px;
+        }
+
+        .table-state-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 6px;
+        }
+
+        .table-state-sub {
+            font-size: 13px;
+            color: var(--gray);
+            line-height: 1.5;
+        }
+
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        thead { background: var(--gray-light); border-bottom: 1px solid var(--border); }
+
+        th {
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 11px;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: var(--gray);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 13px 16px;
+            font-size: 14px;
+            border-bottom: 1px solid var(--border);
+            color: var(--dark);
+            vertical-align: middle;
+        }
+
+        td:first-child { font-weight: 600; }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover td { background: #FAFAFA; }
+
+        /* ---- Buttons ---- */
+        .btn {
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 14px;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-radius: 8px;
+        }
+
+        .btn-primary       { background: var(--primary); color: #fff; }
+        .btn-primary:hover { background: #E57A00; }
+
+        .btn-ghost       { background: transparent; color: var(--gray); border: 1.5px solid var(--border); }
+        .btn-ghost:hover { color: var(--dark); border-color: #9CA3AF; }
+
+        .btn-manage {
+            background: none;
+            border: 1.5px solid var(--border);
+            font-family: inherit;
+            font-size: 13px;
+            color: var(--gray);
+            cursor: pointer;
+            padding: 5px 12px;
+            transition: all 0.2s;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .btn-manage:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+        /* ---- Forms ---- */
+        .form-input {
+            width: 100%;
+            padding: 10px 14px;
+            margin-bottom: 10px;
+            border: 1.5px solid var(--border);
+            background: var(--gray-light);
+            font-family: inherit;
+            font-size: 14px;
+            color: var(--dark);
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            border-radius: var(--radius);
+        }
+
+        .form-input:focus {
+            border-color: var(--primary);
+            background: var(--white);
+            box-shadow: 0 0 0 3px rgba(255,140,0,0.1);
+        }
+
+        .form-input::placeholder { color: #C4C9D4; }
+
+        /* ---- Info rows ---- */
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 13px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .info-row:last-child { border-bottom: none; }
+
+        .info-key {
+            font-size: 11px;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: var(--gray);
+            font-weight: 700;
+        }
+
+        .info-val { font-size: 14px; font-weight: 600; }
+
+        /* ---- Modal ---- */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 999;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-box {
+            background: var(--white);
+            border: 1px solid var(--border);
+            width: 100%;
+            max-width: 460px;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.15);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 20px 24px 16px;
+            border-bottom: 1px solid var(--border);
+            background: var(--gray-light);
+        }
+
+        .modal-title {
+            font-size: 11px;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: var(--gray);
+            margin-bottom: 4px;
+            font-weight: 700;
+        }
+
+        .modal-client { font-weight: 700; font-size: 16px; color: var(--primary); }
+
+        .modal-body { padding: 20px 24px; }
+
+        .modal-section-label {
+            font-size: 11px;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: var(--gray);
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+
+        .module-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border: 1.5px solid var(--border);
+            cursor: pointer;
+            margin-bottom: 6px;
+            transition: all 0.15s;
+            border-radius: 10px;
+        }
+
+        .module-row:hover { border-color: var(--primary); background: var(--primary-soft); }
+
+        .module-row input[type="checkbox"] {
+            width: 16px; height: 16px;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .module-name { font-weight: 600; font-size: 14px; }
+        .module-desc { font-size: 12px; color: var(--gray); margin-top: 2px; }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 8px;
+        }
+
+        /* ════════ TICKETS ════════ */
+        .ticket-form-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px 32px;
+            max-width: 680px;
+            margin: 0 auto;
+        }
+
+        .ticket-field {
+            margin-bottom: 18px;
+        }
+
+        .ticket-field label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--gray);
+            margin-bottom: 8px;
+        }
+
+        .ticket-input, .ticket-select, .ticket-textarea {
+            width: 100%;
+            padding: 11px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 9px;
+            font-family: inherit;
+            font-size: 14px;
+            color: var(--dark);
+            background: var(--white);
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .ticket-input:focus, .ticket-select:focus, .ticket-textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(255,140,0,0.09);
+        }
+
+        .ticket-textarea {
+            min-height: 120px;
+            resize: vertical;
+            line-height: 1.6;
+        }
+
+        .ticket-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 20px;
+            letter-spacing: 0.04em;
+        }
+
+        .ticket-badge.ouvert {
+            background: #FEF3C7;
+            color: #92400E;
+        }
+
+        .ticket-badge.ferme {
+            background: var(--success-soft);
+            color: #065F46;
+        }
+
+        .admin-ticket-row {
+            cursor: pointer;
+            transition: background 0.12s;
+        }
+
+        .admin-ticket-row:hover td { background: #FFFBF5; }
+
+        .ticket-detail-box {
+            background: var(--gray-light);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            padding: 14px 16px;
+            font-size: 13px;
+            color: var(--dark);
+            line-height: 1.7;
+            margin-top: 8px;
+            white-space: pre-wrap;
+        }
+
+        /* ════════ CHANGEMENT MOT DE PASSE ════════ */
+        .pwd-section {
+            margin-top: 36px;
+            padding-top: 28px;
+            border-top: 1px solid var(--border);
+        }
+
+        .pwd-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        @media (max-width: 700px) { .pwd-grid { grid-template-columns: 1fr; } }
+
+        .pwd-msg {
+            display: none;
+            margin-left: 14px;
+            font-size: 13px;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .pwd-msg.ok { color: var(--success); }
+        .pwd-msg.err { color: var(--danger); }
+
+        /* ════════ FACTURE PONCTUELLE ════════ */
+        .manual-inv-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            max-width: 1000px;
+        }
+
+        @media (max-width: 800px) { .manual-inv-layout { grid-template-columns: 1fr; } }
+
+        .manual-inv-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px 28px;
+        }
+
+        .manual-inv-card .profile-section-title { margin-bottom: 18px; }
+
+        .manual-inv-field { margin-bottom: 16px; }
+
+        .manual-inv-field label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--gray);
+            margin-bottom: 7px;
+        }
+
+        .manual-inv-field input,
+        .manual-inv-field select,
+        .manual-inv-field textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 9px;
+            font-family: inherit;
+            font-size: 14px;
+            color: var(--dark);
+            background: var(--white);
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .manual-inv-field input:focus,
+        .manual-inv-field select:focus,
+        .manual-inv-field textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(255,140,0,0.09);
+        }
+
+        .manual-inv-field textarea {
+            min-height: 70px;
+            resize: vertical;
+            line-height: 1.6;
+        }
+
+        .manual-inv-recap {
+            background: var(--primary-soft);
+            border: 1.5px solid #FFD9A0;
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 18px;
+        }
+
+        .manual-inv-recap-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+        }
+
+        .manual-inv-recap-row:not(:last-child) {
+            border-bottom: 1px solid rgba(255,140,0,0.15);
+        }
+
+        .manual-inv-recap-label {
+            font-size: 12px;
+            color: var(--gray);
+            font-weight: 600;
+        }
+
+        .manual-inv-recap-val {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .manual-inv-emetteur {
+            background: var(--gray-light);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            padding: 14px 18px;
+        }
+
+        .manual-inv-emetteur-name {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 4px;
+        }
+
+        .manual-inv-emetteur-info {
+            font-size: 12px;
+            color: var(--gray);
+            line-height: 1.6;
+        }
+
+        /* ── Preview modale facture ponctuelle ── */
+        .prev-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 9998;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(3px);
+        }
+
+        .prev-modal-overlay.open { display: flex; }
+
+        .prev-modal-box {
+            background: var(--white);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 520px;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.18);
+            overflow: hidden;
+        }
+
+        .prev-modal-header {
+            background: linear-gradient(135deg, #FF8C00, #E06200);
+            padding: 22px 26px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .prev-modal-header::before {
+            content: '';
+            position: absolute;
+            top: -30px; right: -30px;
+            width: 120px; height: 120px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+            pointer-events: none;
+        }
+
+        .prev-modal-title {
+            font-size: 17px;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 3px;
+            position: relative; z-index: 1;
+        }
+
+        .prev-modal-sub {
+            font-size: 12px;
+            color: rgba(255,255,255,0.78);
+            position: relative; z-index: 1;
+        }
+
+        .prev-modal-body { padding: 22px 26px; }
+
+        .prev-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .prev-block {
+            background: var(--gray-light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 11px 14px;
+        }
+
+        .prev-block.full { grid-column: 1 / -1; }
+
+        .prev-block-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--gray);
+            margin-bottom: 4px;
+        }
+
+        .prev-block-val {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .prev-montant-box {
+            background: var(--primary-soft);
+            border: 1.5px solid #FFD9A0;
+            border-radius: 10px;
+            padding: 14px 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .prev-montant-label { font-size: 13px; font-weight: 700; color: var(--dark); }
+        .prev-montant-val   { font-size: 22px; font-weight: 800; color: var(--primary); }
+
+        .prev-modal-footer {
+            padding: 16px 26px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+            background: var(--gray-light);
+        }
+
+        .btn-prev-cancel {
+            flex: 1;
+            background: none;
+            color: var(--gray);
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.15s;
+        }
+
+        .btn-prev-cancel:hover { color: var(--dark); border-color: #9CA3AF; }
+
+        .btn-prev-confirm {
+            flex: 2;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+        }
+
+        .btn-prev-confirm:hover:not(:disabled) { background: #E07000; }
+        .btn-prev-confirm:disabled { background: #D1D5DB; cursor: not-allowed; }
+
+        /* ---- Responsive ---- */
+        @media (max-width: 600px) {
+            .topbar { padding: 0 16px; }
+            .page   { padding: 20px 16px; }
+            .page-title { font-size: 18px; }
+            .user-badge { display: none; }
+            .navbar { padding: 0 16px; overflow-x: auto; }
+            .welcome-banner { flex-direction: column; align-items: flex-start; }
+            .manual-inv-layout { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+    <div class="topbar-brand">
+        <img src="logo-rylia-transparent.png" width="8%">
+        <span class="topbar-name">Rylia</span>
+    </div>
+    <div class="topbar-right">
+        <span class="user-badge" id="user-email">—</span>
+        <button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    </div>
+</header>
+
+<!-- NAVIGATION TABS CLIENT -->
+<nav class="navbar" id="navbar-client" style="display:none;">
+    <button class="navbar-label" id="tab-profile-btn" onclick="switchView('client-profile', this)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+        </svg>
+        Mon espace client
+    </button>
+    <button class="nav-tab" id="tab-overview-btn" onclick="switchView('client-overview', this)">📊 Vue d'ensemble</button>
+    <button class="nav-tab" onclick="switchView('client-solutions', this)">🚀 Mes modules</button>
+    <button class="nav-tab" onclick="switchView('client-invoices', this)">🧾 Mes factures</button>
+    <button class="nav-tab" onclick="switchView('client-tickets', this); loadClientTickets()">🎫 Ouvrir un ticket</button>
+</nav>
+
+<!-- NAVIGATION TABS ADMIN -->
+<nav class="navbar" id="navbar-admin" style="display:none;">
+    <button class="nav-tab active" onclick="switchView('admin-clients', this); loadClientsList()">👥 Clients</button>
+    <button class="nav-tab" onclick="switchView('admin-create', this)">➕ Nouveau client</button>
+    <button class="nav-tab" onclick="switchView('admin-invoices', this); loadAllInvoices()">
+        🧾 Factures émises
+        <span id="admin-inv-count" style="margin-left:6px;background:var(--primary-soft);border:1px solid #FFD9A0;color:var(--primary);font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;"></span>
+    </button>
+    <button class="nav-tab" onclick="switchView('admin-pending', this); loadAllInvoices()">
+        ⏳ Factures à générer
+        <span id="pending-inv-badge" style="margin-left:6px;background:var(--primary-soft);border:1px solid #FFD9A0;color:var(--primary);font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;display:none;"></span>
+    </button>
+    <button class="nav-tab" onclick="switchView('admin-manual-invoice', this); loadAllInvoices(); populateManualInvClients()">
+        🧾 Facture ponctuelle
+    </button>
+    <button class="nav-tab" onclick="switchView('admin-tickets', this); loadAdminTickets()">
+        🎫 Gestion des tickets
+        <span id="admin-ticket-count" style="margin-left:6px;background:var(--primary-soft);border:1px solid #FFD9A0;color:var(--primary);font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;">0</span>
+    </button>
+</nav>
+
+<!-- CONTENU -->
+<main class="page">
+
+
+    <!-- MON ESPACE CLIENT — PROFIL -->
+    <div id="client-profile" class="view-section">
+        <div class="page-header">
+            <h1 class="page-title">Mon espace client</h1>
+            <p class="page-subtitle">Retrouvez et complétez les informations de votre compte.</p>
+        </div>
+
+        <!-- Header compte -->
+        <div class="profile-header">
+            <div class="profile-avatar">🏢</div>
+            <div>
+                <div class="profile-header-name" id="profile-header-name">—</div>
+                <div class="profile-header-sub" id="profile-header-sub">—</div>
+            </div>
+        </div>
+
+        <!-- Informations générales (lecture seule) -->
+        <div class="profile-section-title">Informations du compte</div>
+        <div class="profile-grid" style="margin-bottom:28px;">
+            <div class="profile-field">
+                <label>Nom de l'entreprise</label>
+                <input type="text" id="pf-company" readonly>
+            </div>
+            <div class="profile-field">
+                <label>Email de connexion</label>
+                <input type="text" id="pf-email" readonly>
+            </div>
+            <div class="profile-field">
+                <label>Nom de domaine</label>
+                <input type="text" id="pf-domain" readonly>
+            </div>
+            <div class="profile-field">
+                <label>Client depuis</label>
+                <input type="text" id="pf-created" readonly>
+            </div>
+        </div>
+
+        <!-- Informations légales & contact (éditables) -->
+        <div class="profile-section-title">Informations légales &amp; contact</div>
+        <div class="profile-grid">
+            <div class="profile-field">
+                <label>SIRET</label>
+                <input type="text" id="pf-siret" placeholder="ex : 123 456 789 00012"
+                       maxlength="17" oninput="formatSiret(this)">
+            </div>
+            <div class="profile-field">
+                <label>N° TVA</label>
+                <input type="text" id="pf-tva" placeholder="ex : FR12 123456789"
+                       maxlength="16" oninput="formatTva(this)">
+            </div>
+            <div class="profile-field">
+                <label>Téléphone</label>
+                <input type="tel" id="pf-phone" placeholder="ex : 06 12 34 56 78"
+                       maxlength="14" oninput="formatPhone(this)">
+            </div>
+            <div class="profile-field">
+                <label>Forme juridique</label>
+                <select id="pf-forme" style="width:100%;border:none;outline:none;font-size:14px;font-weight:600;color:var(--dark);font-family:inherit;background:transparent;padding:0;cursor:pointer;">
+                    <option value="">-- Sélectionner --</option>
+                    <option value="SAS">SAS — Société par Actions Simplifiée</option>
+                    <option value="SARL">SARL — Société à Responsabilité Limitée</option>
+                    <option value="EURL">EURL — Entreprise Unipersonnelle à RL</option>
+                    <option value="SA">SA — Société Anonyme</option>
+                    <option value="SNC">SNC — Société en Nom Collectif</option>
+                    <option value="EI">EI — Entreprise Individuelle</option>
+                    <option value="Auto-entrepreneur">Auto-entrepreneur / Micro-entreprise</option>
+                    <option value="Association">Association (loi 1901)</option>
+                    <option value="Autre">Autre</option>
+                </select>
+            </div>
+            <div class="profile-field full">
+                <label>Adresse</label>
+                <div class="address-wrap">
+                    <input type="text" id="pf-address" placeholder="Commencez à taper votre adresse…"
+                           autocomplete="off" oninput="onAddressInput(this.value)">
+                    <div class="address-suggestions" id="address-suggestions"></div>
+                </div>
+            </div>
+            <div class="profile-field">
+                <label>Code postal</label>
+                <input type="text" id="pf-zip" placeholder="ex : 75001" maxlength="5">
+            </div>
+            <div class="profile-field">
+                <label>Ville</label>
+                <input type="text" id="pf-city" placeholder="ex : Paris">
+            </div>
+        </div>
+
+        <button class="btn-save-profile" onclick="saveProfile()">Enregistrer les modifications</button>
+        <span class="profile-save-ok" id="profile-save-ok">✓ Modifications enregistrées !</span>
+
+        <!-- Changement de mot de passe -->
+        <div class="pwd-section">
+            <div class="profile-section-title">Sécurité — Modifier mon mot de passe</div>
+            <div class="pwd-grid">
+                <div class="profile-field">
+                    <label>Mot de passe actuel</label>
+                    <input type="password" id="pwd-current" placeholder="Votre mot de passe actuel">
+                </div>
+                <div class="profile-field">
+                    <label>Nouveau mot de passe</label>
+                    <input type="password" id="pwd-new" placeholder="6 caractères minimum">
+                </div>
+                <div class="profile-field">
+                    <label>Confirmer le nouveau</label>
+                    <input type="password" id="pwd-confirm" placeholder="Retapez le nouveau mot de passe">
+                </div>
+            </div>
+            <button class="btn-save-profile" onclick="changePassword()">Modifier le mot de passe</button>
+            <span class="pwd-msg ok" id="pwd-ok">✓ Mot de passe modifié avec succès !</span>
+            <span class="pwd-msg err" id="pwd-err"></span>
+        </div>
+    </div>
+
+    <!-- VUE ENSEMBLE CLIENT -->
+    <div id="client-overview" class="view-section">
+        <div class="page-header">
+            <h1 class="page-title">Vue d'ensemble</h1>
+            <p class="page-subtitle">Bienvenue sur votre espace client Rylia.</p>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="kpi-grid">
+            <div class="kpi-card accent">
+                <div class="kpi-icon">&#128640;</div>
+                <div class="kpi-label">Modules actifs</div>
+                <div class="kpi-value" id="overview-nb-solutions">&#8212;</div>
+                <div class="kpi-sub">modules deployes sur votre compte</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon green">&#128196;</div>
+                <div class="kpi-label">Factures</div>
+                <div class="kpi-value" id="overview-inv-total">—</div>
+                <div class="kpi-sub" id="overview-inv-sub">Chargement…</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon gray">&#128737;</div>
+                <div class="kpi-label">Statut du compte</div>
+                <div class="kpi-value" style="font-size:18px; color: var(--success);">Actif</div>
+                <div class="kpi-sub">tous les services sont operationnels</div>
+            </div>
+        </div>
+
+        <!-- Info cards -->
+        <div class="info-grid">
+            <div class="info-card">
+                <div class="info-card-icon">&#128161;</div>
+                <div class="info-card-title">Mes modules</div>
+                <div class="info-card-body">Accédez a tous vos modules actifs : site internet, carte digitale, roue d'avis, programme de fidélité.</div>
+            </div>
+            <div class="info-card">
+                <div class="info-card-icon">&#129534;</div>
+                <div class="info-card-title">Mes factures</div>
+                <div class="info-card-body">Consultez l'historique de vos factures et suivez l'état de vos paiements en toute transparence.</div>
+            </div>
+            <div class="info-card">
+                <div class="info-card-icon">&#128233;</div>
+                <div class="info-card-title">Besoin d'aide ?</div>
+                <div class="info-card-body">Notre equipe est disponible pour vous accompagner. Contactez Rylia pour toute demande de support.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MES SOLUTIONS CLIENT -->
+    <div id="client-solutions" class="view-section">
+        <div class="page-header">
+            <h1 class="page-title">Mes modules</h1>
+            <p class="page-subtitle">Les modules actifs et disponibles sur votre compte Rylia.</p>
+        </div>
+
+        <div class="table-card">
+            <div class="table-topbar">
+                <span class="table-label">Modules actifs</span>
+                <span class="badge-active">Services en ligne</span>
+            </div>
+            <div style="padding: 24px;">
+                <div id="solutions-container" class="solutions-grid">
+                    <div class="card">
+                        <div class="card-body" style="color:var(--gray); font-style:italic;">Chargement…</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MES FACTURES CLIENT -->
+    <div id="client-invoices" class="view-section">
+        <div class="page-header">
+            <h1 class="page-title">Mes factures</h1>
+            <p class="page-subtitle">Historique de vos factures et abonnements.</p>
+        </div>
+
+        <!-- KPI factures -->
+        <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 24px;">
+            <div class="kpi-card">
+                <div class="kpi-label">Total factures</div>
+                <div class="kpi-value" id="cli-inv-total">—</div>
+                <div class="kpi-sub">factures émises</div>
+            </div>
+            <div class="kpi-card accent">
+                <div class="kpi-label">En attente</div>
+                <div class="kpi-value" id="cli-inv-attente">—</div>
+                <div class="kpi-sub">paiements en cours</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Réglées</div>
+                <div class="kpi-value" id="cli-inv-reglees" style="color:var(--success);">—</div>
+                <div class="kpi-sub">factures acquittées</div>
+            </div>
+        </div>
+
+        <!-- Table factures -->
+        <div class="table-card">
+            <div class="table-topbar">
+                <span class="table-label">Historique</span>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>N° Facture</th>
+                            <th>Description</th>
+                            <th>Montant</th>
+                            <th>Statut</th>
+                            <th>Fichier</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cli-inv-tbody">
+                        <tr>
+                            <td colspan="5" style="padding:0; border:none;">
+                                <div class="table-state">
+                                    <div class="table-state-icon">🧾</div>
+                                    <div class="table-state-title">Chargement…</div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TICKETS CLIENT -->
+    <div id="client-tickets" class="view-section">
+        <div class="page-header">
+            <h1 class="page-title">Ouvrir un ticket</h1>
+            <p class="page-subtitle">Signalez un problème ou faites une demande à l'équipe Rylia.</p>
+        </div>
+
+        <!-- Formulaire -->
+        <div class="ticket-form-card" style="margin-bottom:28px;">
+            <div class="profile-section-title" style="margin-bottom:20px;">Nouvelle demande</div>
+
+            <div class="ticket-field">
+                <label>Module concerné</label>
+                <select id="ticket-module" class="ticket-select">
+                    <option value="">— Sélectionner un module —</option>
+                    <option value="Site Internet">🌐 Site Internet</option>
+                    <option value="Carte Digitale">💳 Carte Digitale</option>
+                    <option value="Roue d'Avis">⭐ Roue d'Avis</option>
+                    <option value="Web Fidelite">🎁 Web Fidélité</option>
+                    <option value="Facturation">🧾 Facturation</option>
+                    <option value="Autre">❓ Autre</option>
+                </select>
+            </div>
+
+            <div class="ticket-field">
+                <label>Objet du ticket</label>
+                <input type="text" id="ticket-objet" class="ticket-input" placeholder="Résumez votre demande en quelques mots…" maxlength="120">
+            </div>
+
+            <div class="ticket-field">
+                <label>Description</label>
+                <textarea id="ticket-message" class="ticket-textarea" placeholder="Décrivez votre problème ou demande en détail…"></textarea>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:14px;">
+                <button class="btn btn-primary" onclick="submitTicket()">Envoyer le ticket</button>
+                <span id="ticket-ok"  style="display:none;font-size:13px;font-weight:600;color:var(--success);">✅ Ticket envoyé !</span>
+                <span id="ticket-err" style="display:none;font-size:13px;font-weight:600;color:var(--danger);"></span>
+            </div>
+        </div>
+
+        <!-- Historique des tickets du client -->
+        <div class="table-card">
+            <div class="table-topbar">
+                <span class="table-label">Mes tickets</span>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Module</th>
+                            <th>Objet</th>
+                            <th>Date</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody id="client-tickets-tbody">
+                        <tr><td colspan="4" style="text-align:center;padding:32px;color:var(--gray);">Chargement…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- LISTE CLIENTS ADMIN -->
+    <div id="admin-clients" class="view-section">
+        <div class="page-header">
+            <h1 class="page-title">Liste des clients</h1>
+            <p class="page-subtitle">Gérez les accès et modules de chaque client.</p>
+        </div>
+        <div class="table-card">
+            <div class="table-topbar">
+                <span class="table-label">Clients actifs</span>
+                <input type="text" id="search-client" class="search-input" placeholder="Rechercher un client…" oninput="filterClients()">
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Entreprise</th>
+                            <th>Domaine</th>
+                            <th>Email</th>
+                            <th style="text-align:right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clients-list">
+                        <tr><td colspan="4" style="text-align:center; padding:24px; color:var(--gray);">Chargement…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- CRÉER CLIENT ADMIN -->
+    <div id="admin-create" class="view-section">
+        <div class="page-header">
+            <h1 class="page-title">Nouveau client</h1>
+            <p class="page-subtitle">Créer un accès client sur la plateforme.</p>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; max-width:900px;">
+
+            <!-- Bloc 1 : Accès (obligatoire) -->
+            <div class="block">
+                <div class="card-label" style="margin-bottom:16px;">Accès au compte <span style="color:var(--danger);">*</span></div>
+                <input type="text"     id="new-client-company"     class="form-input" placeholder="Nom de l'entreprise *">
+                <input type="text"     id="new-client-domain"      class="form-input" placeholder="Nom de domaine (ex: monsite.fr)">
+                <input type="email"    id="new-client-email"       class="form-input" placeholder="Email de connexion *">
+                <div style="display:flex; gap:8px;">
+                    <input type="password" id="new-client-pwd"         class="form-input" placeholder="Mot de passe *">
+                    <input type="password" id="new-client-pwd-confirm" class="form-input" placeholder="Confirmer *">
+                </div>
+                <p style="font-size:11px; color:var(--gray); margin-top:4px; margin-bottom:12px;">* Champs obligatoires</p>
+                <button class="btn btn-primary" id="btn-create-client" onclick="createNewClient()" style="width:100%;">Créer le compte</button>
+                <p id="create-msg"   style="margin-top:12px; font-size:13px; font-weight:600; color:var(--success); display:none;">Client créé avec succès !</p>
+                <p id="create-error" style="margin-top:12px; font-size:13px; font-weight:600; color:var(--danger); display:none;"></p>
+            </div>
+
+            <!-- Bloc 2 : Infos légales (facultatif) -->
+            <div class="block">
+                <div class="profile-section-title">Informations légales &amp; contact</div>
+                <p style="font-size:11px; color:var(--gray); margin-bottom:16px;">Facultatif — le client peut compléter depuis son espace.</p>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                    <div class="profile-field">
+                        <label>SIRET</label>
+                        <input type="text" id="new-client-siret" placeholder="ex : 123 456 789 00012"
+                               maxlength="17" oninput="formatSiret(this)">
+                    </div>
+                    <div class="profile-field">
+                        <label>N° TVA</label>
+                        <input type="text" id="new-client-tva" placeholder="ex : FR12 123456789"
+                               maxlength="16" oninput="formatTva(this)">
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                    <div class="profile-field">
+                        <label>Téléphone</label>
+                        <input type="tel" id="new-client-phone" placeholder="ex : 06 12 34 56 78"
+                               maxlength="14" oninput="formatPhone(this)">
+                    </div>
+                    <div class="profile-field">
+                        <label>Forme juridique</label>
+                        <select id="new-client-forme" style="width:100%;border:none;outline:none;font-size:14px;font-weight:600;color:var(--dark);font-family:inherit;background:transparent;padding:0;cursor:pointer;">
+                            <option value="">-- Sélectionner --</option>
+                            <option value="SAS">SAS — Société par Actions Simplifiée</option>
+                            <option value="SARL">SARL — Société à Responsabilité Limitée</option>
+                            <option value="EURL">EURL — Entreprise Unipersonnelle à RL</option>
+                            <option value="SA">SA — Société Anonyme</option>
+                            <option value="SNC">SNC — Société en Nom Collectif</option>
+                            <option value="EI">EI — Entreprise Individuelle</option>
+                            <option value="Auto-entrepreneur">Auto-entrepreneur / Micro-entreprise</option>
+                            <option value="Association">Association (loi 1901)</option>
+                            <option value="Autre">Autre</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="profile-field full" style="margin-bottom:10px;">
+                    <label>Adresse</label>
+                    <div class="address-wrap">
+                        <input type="text" id="new-client-address" placeholder="Commencez à taper votre adresse…"
+                               autocomplete="off" oninput="onAdminAddressInput(this.value)">
+                        <div class="address-suggestions" id="admin-address-suggestions"></div>
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <div class="profile-field">
+                        <label>Code postal</label>
+                        <input type="text" id="new-client-zip" placeholder="ex : 75001" maxlength="5">
+                    </div>
+                    <div class="profile-field">
+                        <label>Ville</label>
+                        <input type="text" id="new-client-city" placeholder="ex : Paris">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+
+    <!-- FACTURES ÉMISES ADMIN -->
+    <div id="admin-invoices" class="view-section">
+        <div class="page-header">
+            <h1 class="page-title">Factures émises</h1>
+            <p class="page-subtitle">Toutes les factures envoyées à vos clients, en temps réel.</p>
+        </div>
+
+        <!-- KPIs -->
+        <div class="kpi-grid" style="margin-bottom:24px;">
+            <div class="kpi-card">
+                <div class="kpi-icon">&#129534;</div>
+                <div class="kpi-label">Total</div>
+                <div class="kpi-value" id="adm-inv-total">—</div>
+                <div class="kpi-sub">factures émises</div>
+            </div>
+            <div class="kpi-card accent">
+                <div class="kpi-icon">&#9203;</div>
+                <div class="kpi-label">En attente</div>
+                <div class="kpi-value" id="adm-inv-attente">—</div>
+                <div class="kpi-sub">paiements en cours</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon green">&#10003;</div>
+                <div class="kpi-label">Réglées</div>
+                <div class="kpi-value" id="adm-inv-reglees">—</div>
+                <div class="kpi-sub">factures acquittées</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon">&#128176;</div>
+                <div class="kpi-label">Montant total</div>
+                <div class="kpi-value" id="adm-inv-montant" style="font-size:20px;">—</div>
+                <div class="kpi-sub">cumulé toutes factures</div>
+            </div>
+        </div>
+
+        <!-- Filtres -->
+        <div style="display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
+            <input type="text" id="adm-inv-search" class="search-input" placeholder="Rechercher un client, N° ou description…"
+                   oninput="filterAdminInvoices()" style="width:300px;">
+            <select id="adm-inv-filter-statut" class="search-input" style="width:160px;" onchange="filterAdminInvoices()">
+                <option value="">Tous les statuts</option>
+                <option value="attente">En attente</option>
+                <option value="reglee">Réglées</option>
+            </select>
+        </div>
+
+        <!-- Table -->
+        <div class="table-card">
+            <div class="table-topbar">
+                <span class="table-label">Historique global</span>
+                <span id="adm-inv-result-count" style="font-size:12px;color:var(--gray);"></span>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Client</th>
+                            <th>N° Facture</th>
+                            <th>Description</th>
+                            <th>Montant</th>
+                            <th>Statut</th>
+                            <th>Fichier</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adm-inv-tbody">
+                        <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--gray);">Chargement…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TICKETS ADMIN -->
+    <div id="admin-tickets" class="view-section">
+        <div class="page-header">
+            <h1 class="page-title">Gestion des tickets</h1>
+            <p class="page-subtitle">Consultez et traitez les demandes de vos clients.</p>
+        </div>
+
+        <!-- KPIs -->
+        <div class="kpi-grid" style="margin-bottom:24px;">
+            <div class="kpi-card accent">
+                <div class="kpi-icon">🎫</div>
+                <div class="kpi-label">Ouverts</div>
+                <div class="kpi-value" id="adm-tk-ouverts">—</div>
+                <div class="kpi-sub">tickets en attente</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon green">✓</div>
+                <div class="kpi-label">Fermés</div>
+                <div class="kpi-value" id="adm-tk-fermes">—</div>
+                <div class="kpi-sub">tickets traités</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon gray">📋</div>
+                <div class="kpi-label">Total</div>
+                <div class="kpi-value" id="adm-tk-total">—</div>
+                <div class="kpi-sub">tickets reçus</div>
+            </div>
+        </div>
+
+        <!-- Filtre statut -->
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+            <select id="adm-tk-filter" class="search-input" style="width:180px;" onchange="filterAdminTickets()">
+                <option value="">Tous les statuts</option>
+                <option value="ouvert">Ouverts</option>
+                <option value="ferme">Fermés</option>
+            </select>
+            <input type="text" id="adm-tk-search" class="search-input" placeholder="Rechercher client, module, objet…" oninput="filterAdminTickets()" style="width:280px;">
+        </div>
+
+        <!-- Table tickets -->
+        <div class="table-card">
+            <div class="table-topbar">
+                <span class="table-label">Tickets reçus</span>
+                <span id="adm-tk-count" style="font-size:12px;color:var(--gray);"></span>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Client</th>
+                            <th>Module</th>
+                            <th>Objet</th>
+                            <th>Date</th>
+                            <th>Statut</th>
+                            <th style="text-align:right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adm-tk-tbody">
+                        <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--gray);">Chargement…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- FACTURES À GÉNÉRER ADMIN -->
+    <div id="admin-pending" class="view-section">
+        <div class="page-header">
+            <h1 class="page-title">Factures à générer</h1>
+            <p class="page-subtitle">Modules non encore facturés pour le mois en cours.</p>
+        </div>
+
+        <!-- KPIs -->
+        <div class="kpi-grid" style="margin-bottom:24px;">
+            <div class="kpi-card danger">
+                <div class="kpi-icon red">&#9203;</div>
+                <div class="kpi-label">En attente</div>
+                <div class="kpi-value" id="pending-kpi-count">—</div>
+                <div class="kpi-sub">factures à émettre</div>
+            </div>
+            <div class="kpi-card accent">
+                <div class="kpi-icon">&#128176;</div>
+                <div class="kpi-label">Montant total</div>
+                <div class="kpi-value" id="pending-kpi-montant" style="font-size:20px;">—</div>
+                <div class="kpi-sub">à facturer ce mois</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon green">&#10003;</div>
+                <div class="kpi-label">Déjà générées</div>
+                <div class="kpi-value" id="pending-kpi-done">—</div>
+                <div class="kpi-sub">ce mois</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon">&#128197;</div>
+                <div class="kpi-label">Période</div>
+                <div class="kpi-value" id="pending-kpi-periode" style="font-size:16px;">—</div>
+                <div class="kpi-sub">mois en cours</div>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-card">
+            <div class="table-topbar">
+                <span class="table-label">Factures à émettre ce mois</span>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Client</th>
+                            <th>Module</th>
+                            <th>Montant</th>
+                            <th style="text-align:right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pending-tbody">
+                        <tr><td colspan="4" style="text-align:center;padding:32px;color:var(--gray);">Chargement…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- FACTURE PONCTUELLE ADMIN -->
+    <div id="admin-manual-invoice" class="view-section">
+        <div class="page-header">
+            <h1 class="page-title">Facture ponctuelle</h1>
+            <p class="page-subtitle">Générez et envoyez une facture personnalisée (installation, prestation, etc.).</p>
+        </div>
+
+        <div class="manual-inv-layout">
+
+            <!-- Colonne gauche : Formulaire -->
+            <div class="manual-inv-card">
+                <div class="profile-section-title">Détails de la facture</div>
+
+                <div class="manual-inv-field">
+                    <label>Client <span style="color:var(--danger);">*</span></label>
+                    <select id="mi-client" onchange="onManualInvClientChange()">
+                        <option value="">— Sélectionner un client —</option>
+                    </select>
+                </div>
+
+                <div class="manual-inv-field">
+                    <label>Libellé / Description <span style="color:var(--danger);">*</span></label>
+                    <input type="text" id="mi-description" placeholder="Ex : Installation site internet, prestation design…">
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div class="manual-inv-field">
+                        <label>Montant TTC (€) <span style="color:var(--danger);">*</span></label>
+                        <input type="number" id="mi-montant" placeholder="0.00" step="0.01" min="0">
+                    </div>
+                    <div class="manual-inv-field">
+                        <label>Période</label>
+                        <input type="text" id="mi-periode-label" readonly style="background:var(--gray-light);color:var(--gray);font-weight:500;cursor:default;">
+                    </div>
+                </div>
+
+                <div style="display:flex;align-items:center;gap:14px;margin-top:8px;">
+                    <button class="btn btn-primary" onclick="previewManualInvoice()" style="display:flex;align-items:center;gap:7px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        Aperçu &amp; Envoyer
+                    </button>
+                    <span id="mi-error" style="display:none;font-size:13px;font-weight:600;color:var(--danger);"></span>
+                </div>
+            </div>
+
+            <!-- Colonne droite : Récapitulatif en direct -->
+            <div>
+                <!-- Récap client sélectionné -->
+                <div class="manual-inv-card" style="margin-bottom:18px;">
+                    <div class="profile-section-title">Client sélectionné</div>
+                    <div id="mi-client-recap" style="font-size:13px;color:var(--gray);font-style:italic;">
+                        Aucun client sélectionné.
+                    </div>
+                </div>
+
+                <!-- Récap facture -->
+                <div class="manual-inv-card" style="margin-bottom:18px;">
+                    <div class="profile-section-title">Récapitulatif</div>
+                    <div class="manual-inv-recap">
+                        <div class="manual-inv-recap-row">
+                            <span class="manual-inv-recap-label">Description</span>
+                            <span class="manual-inv-recap-val" id="mi-recap-desc">—</span>
+                        </div>
+                        <div class="manual-inv-recap-row">
+                            <span class="manual-inv-recap-label">Montant TTC</span>
+                            <span class="manual-inv-recap-val" id="mi-recap-montant" style="color:var(--primary);font-size:16px;">— €</span>
+                        </div>
+                        <div class="manual-inv-recap-row">
+                            <span class="manual-inv-recap-label">Période</span>
+                            <span class="manual-inv-recap-val" id="mi-recap-periode">—</span>
+                        </div>
+                    </div>
+                    <div style="font-size:11px;color:var(--gray);font-style:italic;">TVA non applicable — art. 293B du CGI</div>
+                </div>
+
+                <!-- Émetteur -->
+                <div class="manual-inv-card">
+                    <div class="profile-section-title">Émetteur</div>
+                    <div class="manual-inv-emetteur">
+                        <div class="manual-inv-emetteur-name">Cyrille THEMONT (RYLIA)</div>
+                        <div class="manual-inv-emetteur-info">
+                            47 rue Vivienne, 75002 Paris<br>
+                            SIRET : 102 290 921 00018<br>
+                            contact@rylia.fr<br>
+                            TVA non applicable — art. 293B du CGI
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</main>
+
+<!-- MODALE PREVIEW FACTURE PONCTUELLE -->
+<div id="mi-preview-modal" class="prev-modal-overlay">
+    <div class="prev-modal-box">
+        <div class="prev-modal-header">
+            <div class="prev-modal-title">Confirmer la facture</div>
+            <div class="prev-modal-sub" id="mi-prev-subtitle">Facture ponctuelle</div>
+        </div>
+        <div class="prev-modal-body">
+            <div class="prev-montant-box">
+                <div>
+                    <div class="prev-montant-label" id="mi-prev-desc">—</div>
+                </div>
+                <div class="prev-montant-val" id="mi-prev-montant">—</div>
+            </div>
+
+            <div class="prev-grid">
+                <div class="prev-block">
+                    <div class="prev-block-label">N° Facture</div>
+                    <div class="prev-block-val" id="mi-prev-numero">—</div>
+                </div>
+                <div class="prev-block">
+                    <div class="prev-block-label">Période</div>
+                    <div class="prev-block-val" id="mi-prev-periode">—</div>
+                </div>
+                <div class="prev-block">
+                    <div class="prev-block-label">Client</div>
+                    <div class="prev-block-val" id="mi-prev-client">—</div>
+                </div>
+                <div class="prev-block">
+                    <div class="prev-block-label">Email client</div>
+                    <div class="prev-block-val" id="mi-prev-email" style="font-size:12px;">—</div>
+                </div>
+                <div class="prev-block full">
+                    <div class="prev-block-label">Émetteur</div>
+                    <div class="prev-block-val">Cyrille THEMONT (RYLIA)</div>
+                    <div style="font-size:11px;color:var(--gray);margin-top:2px;">47 rue Vivienne, 75002 Paris — SIRET : 102 290 921 00018</div>
+                </div>
+            </div>
+
+            <div style="font-size:11px;color:var(--gray);font-style:italic;margin-bottom:14px;">TVA non applicable — art. 293B du CGI (micro-entreprise)</div>
+            <div id="mi-prev-status" style="font-size:13px;font-weight:600;min-height:20px;margin-bottom:4px;"></div>
+        </div>
+        <div class="prev-modal-footer">
+            <button class="btn-prev-cancel" onclick="closeManualPreview()">Annuler</button>
+            <button class="btn-prev-confirm" id="mi-btn-confirm" onclick="confirmManualInvoice()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Confirmer et envoyer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- MODALE DÉTAIL TICKET ADMIN -->
+<div id="modal-ticket" class="modal-overlay">
+    <div class="modal-box" style="max-width:540px;">
+        <div class="modal-header">
+            <div class="modal-title">Détail du ticket</div>
+            <div id="modal-tk-client" class="modal-client"></div>
+        </div>
+        <div class="modal-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+                <div>
+                    <div class="modal-section-label">Module</div>
+                    <div id="modal-tk-module" style="font-weight:600;font-size:14px;"></div>
+                </div>
+                <div>
+                    <div class="modal-section-label">Date</div>
+                    <div id="modal-tk-date" style="font-weight:600;font-size:14px;"></div>
+                </div>
+            </div>
+            <div class="modal-section-label">Objet</div>
+            <div id="modal-tk-objet" style="font-weight:700;font-size:15px;margin-bottom:16px;"></div>
+            <div class="modal-section-label">Message du client</div>
+            <div id="modal-tk-message" class="ticket-detail-box"></div>
+        </div>
+        <div class="modal-footer" id="modal-tk-footer" style="flex-wrap:wrap;gap:8px;">
+            <button class="btn btn-ghost" onclick="closeTicketModal()" style="flex:1;min-width:100px;">Fermer</button>
+            <button class="btn" id="btn-delete-ticket" onclick="deleteTicket()"
+                style="flex:1;min-width:100px;background:#FEF2F2;color:var(--danger);border:1.5px solid #FECACA;font-family:inherit;font-weight:600;font-size:14px;padding:10px 20px;border-radius:8px;cursor:pointer;transition:all 0.2s;">
+                🗑 Supprimer
+            </button>
+            <button class="btn btn-primary" id="btn-close-ticket" onclick="closeTicket()" style="flex:2;min-width:140px;">✅ Marquer comme traité</button>
+            <button class="btn" id="btn-reopen-ticket" onclick="reopenTicket()" style="display:none;flex:2;min-width:140px;background:#EFF6FF;color:#1D4ED8;border:1.5px solid #BFDBFE;font-family:inherit;font-weight:600;font-size:14px;padding:10px 20px;border-radius:8px;cursor:pointer;transition:all 0.2s;">
+                🔄 Rouvrir le ticket
+            </button>
+        </div>
+    </div>
+</div>
+<div id="modal-manage" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <div class="modal-title">Gestion client</div>
+            <div id="modal-client-name" class="modal-client"></div>
+        </div>
+        <div class="modal-body">
+            <div class="modal-section-label">Modules activés</div>
+            <label class="module-row">
+                <input type="checkbox" id="mod-site">
+                <div><div class="module-name">🌐 Site Internet</div><div class="module-desc">Site vitrine professionnel</div></div>
+            </label>
+            <label class="module-row">
+                <input type="checkbox" id="mod-carte">
+                <div><div class="module-name">💳 Carte Digitale</div><div class="module-desc">Carte de visite numérique</div></div>
+            </label>
+            <label class="module-row">
+                <input type="checkbox" id="mod-roue">
+                <div><div class="module-name">⭐ Roue d'Avis</div><div class="module-desc">Collecte d'avis automatisée</div></div>
+            </label>
+            <label class="module-row">
+                <input type="checkbox" id="mod-fidelite">
+                <div><div class="module-name">🎁 Web Fidélité</div><div class="module-desc">Programme de fidélité en ligne</div></div>
+            </label>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal()" style="flex:1;">Annuler</button>
+            <button class="btn btn-primary" onclick="saveClientModules()" id="btn-save-modules" style="flex:2;">Enregistrer</button>
+        </div>
+        <div id="modal-success" style="display:none; padding:12px 24px; background:var(--success-soft); border-top:1px solid #6EE7B7; font-size:13px; color:var(--success); font-weight:600;">Modifications enregistrées !</div>
+    </div>
+</div>
+
+
+<script>
+    const firebaseConfig = {
+        apiKey:            "AIzaSyDzd25u43H8emNyh3zVSybFT5xp_APB3HU",
+        authDomain:        "dash-board-rylia.firebaseapp.com",
+        projectId:         "dash-board-rylia",
+        storageBucket:     "dash-board-rylia.firebasestorage.app",
+        messagingSenderId: "404463950207",
+        appId:             "1:404463950207:web:4691e48ab3abaa1285e24a"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth          = firebase.auth();
+    const db            = firebase.firestore();
+    const secondaryApp  = firebase.initializeApp(firebaseConfig, "SecondaryApp");
+    const secondaryAuth = secondaryApp.auth();
+
+    // ---- Garde d'authentification ----
+    auth.onAuthStateChanged(async user => {
+        if (!user) { window.location.href = "login.html"; return; }
+
+        const snap = await db.collection("users").doc(user.uid).get();
+        if (!snap.exists) return;
+        const d = snap.data();
+
+        document.getElementById("user-email").textContent = d.email || user.email;
+
+        if (d.role === "admin") {
+            document.getElementById("navbar-admin").style.display = "flex";
+            const adminClientsBtn = document.querySelector("#navbar-admin .nav-tab");
+            switchView("admin-clients", adminClientsBtn);
+            loadClientsList();
+            loadAllInvoices();   // Pré-charge le compteur de factures dès la connexion
+            loadAdminTickets(); // Pré-charge le compteur de tickets dès la connexion
+            return;
+        }
+
+        // Client
+        document.getElementById("navbar-client").style.display = "flex";
+
+        const modules = d.modules || [];
+        const mInfo = {
+            "Site Internet":  { icon: "🌐", prix: "39,90€/mois" },
+            "Carte Digitale": { icon: "💳", prix: "29,90€/mois" },
+            "Roue d'Avis":    { icon: "⭐", prix: "34,90€/mois" },
+            "Web Fidelite":   { icon: "🎁", prix: "39,90€/mois" }
+        };
+
+        // Mise à jour du KPI "solutions actives" dans Vue d'ensemble
+        const nbKpi = document.getElementById("overview-nb-solutions");
+        if (nbKpi) nbKpi.textContent = modules.length;
+
+        const ctr = document.getElementById("solutions-container");
+        ctr.innerHTML = modules.length === 0
+            ? '<div class="card"><div class="card-body">Aucune solution activée. Contactez Rylia.</div></div>'
+            : modules.map(m => {
+                const i = mInfo[m] || { icon: "", prix: "Sur devis" };
+                return `<div class="card accent">
+                    <div class="card-label">Module actif</div>
+                    <div class="card-title">${i.icon} ${m}</div>
+                    <div class="card-footer">
+                        <span class="card-price">${i.prix}</span>
+                        <button class="btn btn-primary" style="font-size:13px;padding:7px 14px;opacity:0.45;cursor:not-allowed;" disabled>Y accéder</button>
+                    </div>
+                </div>`;
+            }).join("");
+
+        // Activer l'onglet Vue d'ensemble au chargement
+        const overviewBtn = document.getElementById("tab-overview-btn");
+        switchView("client-overview", overviewBtn);
+        loadClientInvoicesForUser(user.uid);
+        loadClientProfile(user.uid);
+    });
+
+    // ---- Navigation ----
+    function switchView(viewId, tabEl) {
+        document.querySelectorAll(".view-section").forEach(v => v.classList.remove("active"));
+        document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll(".navbar-label").forEach(t => t.classList.remove("active"));
+        const section = document.getElementById(viewId);
+        if (section) section.classList.add("active");
+        if (tabEl)   tabEl.classList.add("active");
+        if (viewId === "client-profile") setTimeout(initProfileFormatters, 50);
+    }
+
+    // ---- Client : factures en temps réel ----
+    function loadClientInvoicesForUser(uid) {
+        db.collection("users").doc(uid)
+            .collection("invoices")
+            .orderBy("createdAt", "desc")
+            .onSnapshot(snap => {
+                const invoices = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                const total   = invoices.length;
+                const attente = invoices.filter(i => i.statut === "attente").length;
+                const reglees = invoices.filter(i => i.statut === "reglee").length;
+
+                const elTotal   = document.getElementById("cli-inv-total");
+                const elAttente = document.getElementById("cli-inv-attente");
+                const elReglees = document.getElementById("cli-inv-reglees");
+                const tbody     = document.getElementById("cli-inv-tbody");
+                if (elTotal)   elTotal.textContent   = total;
+                if (elAttente) elAttente.textContent = attente;
+                if (elReglees) elReglees.textContent = reglees;
+
+                // Mise à jour KPI vue d'ensemble
+                const elOvTotal = document.getElementById("overview-inv-total");
+                const elOvSub   = document.getElementById("overview-inv-sub");
+                if (elOvTotal) elOvTotal.textContent = total;
+                if (elOvSub) {
+                    if (total === 0) {
+                        elOvSub.textContent = "Aucune facture pour le moment.";
+                        elOvSub.style.color = "var(--gray)";
+                    } else if (attente === 0) {
+                        elOvSub.textContent = "Tout est à jour, aucun paiement en attente. ✅";
+                        elOvSub.style.color = "var(--success)";
+                    } else if (attente === 1) {
+                        elOvSub.textContent = "dont 1 facture en attente de règlement.";
+                        elOvSub.style.color = "#92400E";
+                    } else {
+                        elOvSub.textContent = "dont " + attente + " factures en attente de règlement.";
+                        elOvSub.style.color = "#92400E";
+                    }
+                }
+                if (!tbody) return;
+
+                if (total === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" style="padding:0;border:none;">
+                        <div class="table-state">
+                            <div class="table-state-icon">&#129534;</div>
+                            <div class="table-state-title">Aucune facture pour le moment</div>
+                            <div class="table-state-sub">Vos futures factures apparaîtront ici.</div>
+                        </div></td></tr>`;
+                    return;
+                }
+
+                function escCli(s) {
+                    return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+                }
+
+                tbody.innerHTML = invoices.map(inv => {
+                    const badge = inv.statut === "reglee"
+                        ? '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:var(--success-soft);color:#065F46;">R&#233;gl&#233;e</span>'
+                        : '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#FEF3C7;color:#92400E;">En attente</span>';
+                    const fileCell = inv.fileUrl
+                        ? `<a href="${inv.fileUrl}" target="_blank" rel="noopener"
+                               style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;
+                                      color:var(--primary);text-decoration:none;padding:5px 10px;
+                                      border:1.5px solid var(--border);border-radius:7px;
+                                      transition:background 0.15s,border-color 0.15s;"
+                               onmouseover="this.style.background='var(--primary-soft)';this.style.borderColor='var(--primary)'"
+                               onmouseout="this.style.background='transparent';this.style.borderColor='var(--border)'">
+                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                               T&#233;l&#233;charger
+                           </a>`
+                        : '<span style="color:var(--gray);font-size:12px;">—</span>';
+
+                    return `<tr>
+                        <td style="font-family:monospace;font-size:13px;">${escCli(inv.numero)}</td>
+                        <td>${escCli(inv.description)}</td>
+                        <td style="font-weight:700;">${parseFloat(inv.montant||0).toFixed(2)} &#8364;</td>
+                        <td>${badge}</td>
+                        <td>${fileCell}</td>
+                    </tr>`;
+                }).join("");
+            }, err => { console.error("Factures client:", err); });
+    }
+
+
+    // ════════ MON ESPACE CLIENT — PROFIL ════════
+    let currentUserUid = null;
+
+
+    // ════════ FORMATAGE CHAMPS PROFIL ════════
+
+    function formatSiret(input) {
+        // Format : XXX XXX XXX XXXXX (14 chiffres)
+        let v = input.value.replace(/\D/g, '').substring(0, 14);
+        let out = '';
+        for (let i = 0; i < v.length; i++) {
+            if (i === 3 || i === 6 || i === 9) out += ' ';
+            out += v[i];
+        }
+        input.value = out;
+    }
+
+    function formatTva(input) {
+        // Format : FR XX XXXXXXXXX
+        let raw = input.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+        // S'assurer que ça commence par FR
+        if (raw.length > 0 && !raw.startsWith('FR')) {
+            raw = 'FR' + raw.replace(/^FR/i, '');
+        }
+        if (raw.length === 0) { input.value = ''; return; }
+        // Après FR : 2 chiffres + 9 chiffres
+        let prefix = raw.substring(0, 2);       // FR
+        let digits = raw.substring(2).replace(/\D/g, '').substring(0, 11);
+        let out = prefix;
+        if (digits.length > 0) out += ' ' + digits.substring(0, 2);
+        if (digits.length > 2) out += ' ' + digits.substring(2, 11);
+        input.value = out;
+    }
+
+    function formatPhone(input) {
+        // Format : XX XX XX XX XX
+        let raw = input.value.replace(/\D/g, '').substring(0, 10);
+        input.value = raw.replace(/(\d{2})(?=\d)/g, '$1 ');
+    }
+
+    // ════════ AUTOCOMPLÉTION ADRESSE ════════
+    let addressTimer = null;
+
+    function onAddressInput(val) {
+        const box = document.getElementById('address-suggestions');
+        clearTimeout(addressTimer);
+        if (val.length < 4) { box.classList.remove('open'); box.innerHTML = ''; return; }
+        addressTimer = setTimeout(() => {
+            fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(val)}&limit=6`)
+                .then(r => r.json())
+                .then(data => {
+                    box.innerHTML = '';
+                    if (!data.features || data.features.length === 0) {
+                        box.classList.remove('open'); return;
+                    }
+                    data.features.forEach(f => {
+                        const p    = f.properties;
+                        const item = document.createElement('div');
+                        item.className = 'address-suggestion-item';
+                        item.innerHTML = `<strong>${p.name || p.label}</strong><small>${p.postcode} ${p.city}</small>`;
+                        item.addEventListener('mousedown', (e) => {
+                            e.preventDefault(); // évite le blur avant le click
+                            document.getElementById('pf-address').value = p.name || p.label;
+                            document.getElementById('pf-zip').value     = p.postcode  || '';
+                            document.getElementById('pf-city').value    = p.city      || '';
+                            box.classList.remove('open');
+                            box.innerHTML = '';
+                        });
+                        box.appendChild(item);
+                    });
+                    box.classList.add('open');
+                })
+                .catch(() => box.classList.remove('open'));
+        }, 280);
+    }
+
+    // Fermer les suggestions si on clique ailleurs
+    document.addEventListener('click', function(e) {
+        const box1 = document.getElementById('address-suggestions');
+        if (box1 && !box1.contains(e.target) && e.target.id !== 'pf-address') {
+            box1.classList.remove('open');
+        }
+        const box2 = document.getElementById('admin-address-suggestions');
+        if (box2 && !box2.contains(e.target) && e.target.id !== 'new-client-address') {
+            box2.classList.remove('open');
+        }
+    });
+
+    // ── Autocomplétion adresse formulaire admin ──
+    let adminAddressTimer = null;
+
+    function onAdminAddressInput(val) {
+        const box = document.getElementById('admin-address-suggestions');
+        clearTimeout(adminAddressTimer);
+        if (val.length < 4) { box.classList.remove('open'); box.innerHTML = ''; return; }
+        adminAddressTimer = setTimeout(() => {
+            fetch('https://api-adresse.data.gouv.fr/search/?q=' + encodeURIComponent(val) + '&limit=6')
+                .then(r => r.json())
+                .then(data => {
+                    box.innerHTML = '';
+                    if (!data.features || data.features.length === 0) {
+                        box.classList.remove('open'); return;
+                    }
+                    data.features.forEach(f => {
+                        const p    = f.properties;
+                        const item = document.createElement('div');
+                        item.className = 'address-suggestion-item';
+                        item.innerHTML = '<strong>' + escHtml(p.name || p.label) + '</strong>'
+                            + '<small>' + escHtml(p.postcode) + ' ' + escHtml(p.city) + '</small>';
+                        item.addEventListener('mousedown', (e) => {
+                            e.preventDefault();
+                            document.getElementById('new-client-address').value = p.name || p.label;
+                            document.getElementById('new-client-zip').value     = p.postcode || '';
+                            document.getElementById('new-client-city').value    = p.city     || '';
+                            box.classList.remove('open');
+                            box.innerHTML = '';
+                        });
+                        box.appendChild(item);
+                    });
+                    box.classList.add('open');
+                })
+                .catch(() => box.classList.remove('open'));
+        }, 280);
+    }
+
+    function loadClientProfile(uid) {
+        currentUserUid = uid;
+        db.collection("users").doc(uid).get().then(snap => {
+            if (!snap.exists) return;
+            const d = snap.data();
+
+            // Header
+            document.getElementById("profile-header-name").textContent = d.companyName || "—";
+            document.getElementById("profile-header-sub").textContent  = d.email || "—";
+
+            // Champs lecture seule
+            document.getElementById("pf-company").value = d.companyName || "";
+            document.getElementById("pf-email").value   = d.email       || "";
+            document.getElementById("pf-domain").value  = d.domainName  || "";
+            document.getElementById("pf-created").value = d.createdAt
+                ? new Date(d.createdAt).toLocaleDateString("fr-FR", { day:"2-digit", month:"long", year:"numeric" })
+                : "";
+
+            // Champs éditables
+            document.getElementById("pf-siret").value   = d.siret   || "";
+            document.getElementById("pf-tva").value     = d.tva     || "";
+            document.getElementById("pf-phone").value   = d.phone   || "";
+            const formeEl = document.getElementById("pf-forme");
+            if (formeEl) formeEl.value = d.forme || "";
+            document.getElementById("pf-address").value = d.address || "";
+            document.getElementById("pf-zip").value     = d.zip     || "";
+            document.getElementById("pf-city").value    = d.city    || "";
+            // Initialiser les formatters après chargement
+            setTimeout(initProfileFormatters, 50);
+        }).catch(e => console.error("Profil:", e));
+    }
+
+    async function saveProfile() {
+        if (!currentUserUid) return;
+        const btn = document.querySelector(".btn-save-profile");
+        const ok  = document.getElementById("profile-save-ok");
+        btn.textContent = "Enregistrement…"; btn.style.opacity = "0.7";
+        ok.style.display = "none";
+        try {
+            await db.collection("users").doc(currentUserUid).update({
+                siret:   document.getElementById("pf-siret").value.trim(),
+                tva:     document.getElementById("pf-tva").value.trim(),
+                phone:   document.getElementById("pf-phone").value.trim(),
+                forme:   document.getElementById("pf-forme").value.trim(),
+                address: document.getElementById("pf-address").value.trim(),
+                zip:     document.getElementById("pf-zip").value.trim(),
+                city:    document.getElementById("pf-city").value.trim(),
+            });
+            ok.style.display = "inline";
+            setTimeout(() => ok.style.display = "none", 3000);
+        } catch(e) {
+            console.error(e);
+            alert("Erreur lors de la sauvegarde.");
+        } finally {
+            btn.textContent = "Enregistrer les modifications";
+            btn.style.opacity = "1";
+        }
+    }
+
+    // ════════ CHANGEMENT MOT DE PASSE ════════
+
+    async function changePassword() {
+        const currentPwd = document.getElementById("pwd-current").value;
+        const newPwd     = document.getElementById("pwd-new").value;
+        const confirmPwd = document.getElementById("pwd-confirm").value;
+        const okEl       = document.getElementById("pwd-ok");
+        const errEl      = document.getElementById("pwd-err");
+        const btn        = document.querySelectorAll(".pwd-section .btn-save-profile")[0];
+
+        okEl.style.display  = "none";
+        errEl.style.display = "none";
+
+        // Validations
+        if (!currentPwd) {
+            errEl.textContent = "Veuillez saisir votre mot de passe actuel.";
+            errEl.style.display = "inline";
+            return;
+        }
+        if (!newPwd || newPwd.length < 6) {
+            errEl.textContent = "Le nouveau mot de passe doit faire au moins 6 caractères.";
+            errEl.style.display = "inline";
+            return;
+        }
+        if (newPwd !== confirmPwd) {
+            errEl.textContent = "Les deux mots de passe ne correspondent pas.";
+            errEl.style.display = "inline";
+            return;
+        }
+        if (currentPwd === newPwd) {
+            errEl.textContent = "Le nouveau mot de passe doit être différent de l'actuel.";
+            errEl.style.display = "inline";
+            return;
+        }
+
+        btn.textContent = "Vérification…";
+        btn.style.opacity = "0.7";
+
+        try {
+            const user       = auth.currentUser;
+            const credential = firebase.auth.EmailAuthProvider.credential(user.email, currentPwd);
+
+            // Ré-authentification avec le mot de passe actuel
+            await user.reauthenticateWithCredential(credential);
+
+            // Mise à jour du mot de passe
+            await user.updatePassword(newPwd);
+
+            // Succès
+            document.getElementById("pwd-current").value = "";
+            document.getElementById("pwd-new").value     = "";
+            document.getElementById("pwd-confirm").value = "";
+            okEl.style.display = "inline";
+            setTimeout(function() { okEl.style.display = "none"; }, 4000);
+        } catch(e) {
+            console.error("Changement MDP:", e);
+            if (e.code === "auth/wrong-password" || e.code === "auth/invalid-credential") {
+                errEl.textContent = "Le mot de passe actuel est incorrect.";
+            } else if (e.code === "auth/weak-password") {
+                errEl.textContent = "Le nouveau mot de passe est trop faible (6 caractères min).";
+            } else {
+                errEl.textContent = "Erreur : " + (e.message || "Réessayez.");
+            }
+            errEl.style.display = "inline";
+        } finally {
+            btn.textContent = "Modifier le mot de passe";
+            btn.style.opacity = "1";
+        }
+    }
+
+
+    // ════════ FORMATAGES & AUTOCOMPLETE PROFIL ════════
+
+    // Initialiser les listeners une fois la vue chargée
+    function initProfileFormatters() {
+        // ── SIRET : XXX XXX XXX XXXXX ──
+        const siretEl = document.getElementById("pf-siret");
+        if (siretEl && !siretEl._formatted) {
+            siretEl._formatted = true;
+            siretEl.addEventListener("input", function() {
+                let v = this.value.replace(/\D/g, "").slice(0, 14);
+                let fmt = "";
+                for (let i = 0; i < v.length; i++) {
+                    if (i === 3 || i === 6) fmt += " ";
+                    if (i === 9) fmt += " ";
+                    fmt += v[i];
+                }
+                this.value = fmt;
+            });
+        }
+
+        // ── TVA : FR XX XXXXXXXXX ──
+        const tvaEl = document.getElementById("pf-tva");
+        if (tvaEl && !tvaEl._formatted) {
+            tvaEl._formatted = true;
+            tvaEl.addEventListener("input", function() {
+                let raw = this.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 13);
+                let fmt = "";
+                if (raw.length >= 2) {
+                    const country = raw.slice(0, 2);
+                    const rest    = raw.slice(2).replace(/\D/g, "");
+                    fmt = country;
+                    if (rest.length >= 1) fmt += " " + rest.slice(0, 2);
+                    if (rest.length >= 3) fmt += " " + rest.slice(2, 11);
+                } else {
+                    fmt = raw;
+                }
+                this.value = fmt;
+            });
+        }
+
+        // ── TÉLÉPHONE : XX XX XX XX XX ──
+        const phoneEl = document.getElementById("pf-phone");
+        if (phoneEl && !phoneEl._formatted) {
+            phoneEl._formatted = true;
+            phoneEl.addEventListener("input", function() {
+                let v = this.value.replace(/\D/g, "").slice(0, 10);
+                this.value = v.replace(/(\d{2})(?=\d)/g, "$1 ");
+            });
+        }
+
+        // ── ADRESSE : autocomplete api-adresse.data.gouv.fr ──
+        const addrEl  = document.getElementById("pf-address");
+        const suggBox = document.getElementById("pf-address-suggestions");
+        if (addrEl && suggBox && !addrEl._autocomplete) {
+            addrEl._autocomplete = true;
+            let addrTimer = null;
+
+            addrEl.addEventListener("input", function() {
+                clearTimeout(addrTimer);
+                const q = this.value.trim();
+                if (q.length < 3) { closeSugg(); return; }
+                addrTimer = setTimeout(() => {
+                    fetch("https://api-adresse.data.gouv.fr/search/?q=" + encodeURIComponent(q) + "&limit=6")
+                        .then(r => r.json())
+                        .then(data => {
+                            suggBox.innerHTML = "";
+                            if (!data.features || !data.features.length) { closeSugg(); return; }
+                            data.features.forEach(f => {
+                                const p    = f.properties;
+                                const item = document.createElement("div");
+                                item.className = "address-suggestion-item";
+                                item.innerHTML = "<strong>" + escHtml(p.name) + "</strong>"
+                                    + "<small>" + escHtml(p.postcode) + " " + escHtml(p.city) + "</small>";
+                                item.addEventListener("mousedown", function(e) {
+                                    e.preventDefault();
+                                    addrEl.value = p.name;
+                                    document.getElementById("pf-zip").value  = p.postcode || "";
+                                    document.getElementById("pf-city").value = p.city     || "";
+                                    closeSugg();
+                                });
+                                suggBox.appendChild(item);
+                            });
+                            suggBox.classList.add("open");
+                        })
+                        .catch(() => closeSugg());
+                }, 280);
+            });
+
+            addrEl.addEventListener("blur", () => setTimeout(closeSugg, 150));
+        }
+    }
+
+    function closeSugg() {
+        const s = document.getElementById("pf-address-suggestions");
+        if (s) { s.classList.remove("open"); s.innerHTML = ""; }
+    }
+
+    function escHtml(s) {
+        return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+
+
+    // ════════════════════════════════════════
+    //  ADMIN — FACTURES ÉMISES (collectionGroup)
+    // ════════════════════════════════════════
+    let allAdminInvoices = [];
+    let adminClients     = [];   // [{...inv, clientName}]
+    let adminInvUnsub    = null;
+
+    async function loadAllInvoices() {
+        if (adminInvUnsub) return;
+
+        try {
+            // 1. Charger tous les clients
+            const usersSnap = await db.collection("users").where("role","==","client").get();
+            adminClients    = usersSnap.docs.map(doc => ({
+                id:      doc.id,
+                name:    doc.data().companyName || doc.data().email || doc.id,
+                email:   doc.data().email || "",
+                modules: doc.data().modules || []
+            }));
+            const clients   = adminClients;
+
+            // 2. Pour chaque client, écouter ses factures en temps réel
+            const perClientInvoices = {};
+            let listenerCount = 0;
+
+            function mergeAndRender() {
+                allAdminInvoices = [];
+                for (const [cid, invList] of Object.entries(perClientInvoices)) {
+                    allAdminInvoices = allAdminInvoices.concat(invList);
+                }
+                allAdminInvoices.sort((a, b) =>
+                    (b.createdAt || "").localeCompare(a.createdAt || "")
+                );
+                renderAdminInvoices(allAdminInvoices);
+                computeAndRenderPending();
+            }
+
+            if (clients.length === 0) {
+                renderAdminInvoices([]);
+                return;
+            }
+
+            const unsubFns = clients.map(client => {
+                perClientInvoices[client.id] = [];
+                return db.collection("users").doc(client.id)
+                    .collection("invoices")
+                    .onSnapshot(snap => {
+                        perClientInvoices[client.id] = snap.docs.map(doc => ({
+                            id: doc.id,
+                            clientId: client.id,
+                            clientName: client.name,
+                            ...doc.data()
+                        }));
+                        mergeAndRender();
+                    }, err => {
+                        console.error("Invoices client " + client.id + ":", err);
+                    });
+            });
+
+            // Stocker une fonction de nettoyage globale
+            adminInvUnsub = () => unsubFns.forEach(fn => fn());
+
+        } catch(e) {
+            console.error("loadAllInvoices:", e);
+            document.getElementById("adm-inv-tbody").innerHTML =
+                '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--danger);">Erreur de chargement.</td></tr>';
+        }
+    }
+
+    function filterAdminInvoices() {
+        const search = document.getElementById("adm-inv-search").value.toLowerCase().trim();
+        const statut = document.getElementById("adm-inv-filter-statut").value;
+        const filtered = allAdminInvoices.filter(inv => {
+            const matchSearch = !search ||
+                (inv.clientName || "").toLowerCase().includes(search) ||
+                (inv.numero     || "").toLowerCase().includes(search) ||
+                (inv.description|| "").toLowerCase().includes(search);
+            const matchStatut = !statut || inv.statut === statut;
+            return matchSearch && matchStatut;
+        });
+        renderAdminInvoices(filtered);
+    }
+
+
+    function renderAdminInvoices(invoices) {
+        const total   = invoices.length;
+        const attente = invoices.filter(i => i.statut === "attente").length;
+        const reglees = invoices.filter(i => i.statut === "reglee").length;
+        const montant = invoices.reduce((s, i) => s + (parseFloat(i.montant) || 0), 0);
+
+        // KPIs
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        set("adm-inv-total",   total);
+        set("adm-inv-attente", attente);
+        set("adm-inv-reglees", reglees);
+        set("adm-inv-montant", montant.toFixed(2) + " €");
+        set("admin-inv-count", attente || "");
+
+        const countEl = document.getElementById("adm-inv-result-count");
+        if (countEl) countEl.textContent = total + " résultat" + (total > 1 ? "s" : "");
+
+        const tbody = document.getElementById("adm-inv-tbody");
+        if (!tbody) return;
+
+        if (total === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="padding:0;border:none;">
+                <div class="table-state">
+                    <div class="table-state-icon" style="width:52px;height:52px;border-radius:14px;background:var(--gray-light);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 16px;">&#129534;</div>
+                    <div class="table-state-title">Aucune facture pour le moment</div>
+                    <div class="table-state-sub">Les factures apparaîtront ici dès que vous en aurez créé.</div>
+                </div></td></tr>`;
+            return;
+        }
+
+
+        tbody.innerHTML = invoices.map(inv => {
+            const badge = inv.statut === "reglee"
+                ? '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:var(--success-soft);color:#065F46;">Réglée</span>'
+                : '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#FEF3C7;color:#92400E;">En attente</span>';
+            const fileCell = inv.fileUrl
+                ? `<a href="${inv.fileUrl}" target="_blank" rel="noopener"
+                       style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;
+                              color:var(--primary);text-decoration:none;padding:5px 10px;
+                              border:1.5px solid var(--border);border-radius:7px;transition:all 0.15s;"
+                       onmouseover="this.style.background='var(--primary-soft)';this.style.borderColor='var(--primary)'"
+                       onmouseout="this.style.background='transparent';this.style.borderColor='var(--border)'">
+                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                       Télécharger
+                   </a>`
+                : '<span style="color:var(--gray);font-size:12px;">—</span>';
+
+            return `<tr>
+                <td>
+                    <span style="font-weight:700;">${esc(inv.clientName)}</span>
+                    <a href="client-detail.html?id=${esc(inv.clientId)}" style="display:block;font-size:11px;color:var(--primary);text-decoration:none;margin-top:2px;">Voir la fiche →</a>
+                </td>
+                <td style="font-family:monospace;font-size:13px;">${esc(inv.numero)}</td>
+                <td>${esc(inv.description)}</td>
+                <td style="font-weight:700;">${parseFloat(inv.montant||0).toFixed(2)} €</td>
+                <td>${badge}</td>
+                <td>${fileCell}</td>
+            </tr>`;
+        }).join("");
+    }
+
+
+    // ════════════════════════════════════════════════════════
+    //  FACTURES À GÉNÉRER — calcul en temps réel
+    // ════════════════════════════════════════════════════════
+
+    const MODULE_PRICES_IDX = {
+        "Site Internet":  39.90,
+        "Carte Digitale": 29.90,
+        "Roue d'Avis":    34.90,
+        "Web Fidelite":   39.90
+    };
+
+    function getCurrentPeriodeIdx() {
+        const n = new Date();
+        return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0");
+    }
+
+    function getPeriodeLabelIdx(periode) {
+        const [year, month] = periode.split("-");
+        return new Date(year, parseInt(month) - 1, 1)
+            .toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+    }
+
+    function computeAndRenderPending() {
+        const periode = getCurrentPeriodeIdx();
+        const label   = getPeriodeLabelIdx(periode);
+
+        // Modules déjà facturés ce mois
+        const billed = new Set();
+        allAdminInvoices.forEach(function(inv) {
+            if (inv.auto && inv.periode === periode && inv.module) {
+                billed.add(inv.clientId + "|" + inv.module);
+            }
+        });
+
+        // Construire la liste des en attente
+        const pending = [];
+        adminClients.forEach(function(client) {
+            (client.modules || []).forEach(function(module) {
+                if (!billed.has(client.id + "|" + module)) {
+                    pending.push({ client: client, module: module });
+                }
+            });
+        });
+
+        const total  = pending.length;
+        const done   = allAdminInvoices.filter(function(inv) { return inv.auto && inv.periode === periode; }).length;
+        const montant = pending.reduce(function(s, p) { return s + (MODULE_PRICES_IDX[p.module] || 0); }, 0);
+
+        // Badge rouge
+        const badge = document.getElementById("pending-inv-badge");
+        if (badge) {
+            badge.textContent = total || "";
+            badge.style.display = total > 0 ? "inline" : "none";
+        }
+
+        // KPIs
+        function setEl(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
+        setEl("pending-kpi-count",   total);
+        setEl("pending-kpi-montant", montant.toFixed(2) + " €");
+        setEl("pending-kpi-done",    done);
+        setEl("pending-kpi-periode", label);
+
+        // Table
+        const tbody = document.getElementById("pending-tbody");
+        if (!tbody) return;
+
+        if (total === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="padding:0;border:none;">'
+                + '<div class="table-state">'
+                + '<div class="table-state-icon" style="width:52px;height:52px;border-radius:14px;background:var(--success-soft);border:1px solid #6EE7B7;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 16px;">&#10003;</div>'
+                + '<div class="table-state-title" style="color:var(--success);">Tout est à jour !</div>'
+                + '<div class="table-state-sub">Tous les modules ont été facturés pour ' + label + '.</div>'
+                + '</div></td></tr>';
+            return;
+        }
+
+        function escIdx(s) { return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+        tbody.innerHTML = pending.map(function(item) {
+            const prix    = MODULE_PRICES_IDX[item.module] || 0;
+            const safeId  = encodeURIComponent(item.client.id);
+            const safeMod = encodeURIComponent(item.module);
+            const url     = "client-detail.html?id=" + safeId + "&automodule=" + safeMod + "&tab=invoices";
+            return '<tr>'
+                + '<td><span style="font-weight:700;">' + escIdx(item.client.name) + '</span>'
+                + '<a href="client-detail.html?id=' + safeId + '" style="display:block;font-size:11px;color:var(--primary);text-decoration:none;margin-top:2px;">Voir la fiche →</a></td>'
+                + '<td>' + escIdx(item.module) + '</td>'
+                + '<td style="font-weight:700;">' + prix.toFixed(2) + ' €</td>'
+                + '<td style="text-align:right;">'
+                + '<a href="' + url + '" target="_blank" class="btn-manage" style="text-decoration:none;display:inline-flex;align-items:center;gap:5px;">'
+                + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'
+                + ' Facturer</a>'
+                + '</td>'
+                + '</tr>';
+        }).join("");
+    }
+
+    function openAllPending() {
+        const periode = getCurrentPeriodeIdx();
+        const billed  = new Set();
+        allAdminInvoices.forEach(function(inv) {
+            if (inv.auto && inv.periode === periode && inv.module) billed.add(inv.clientId + "|" + inv.module);
+        });
+        var count = 0;
+        adminClients.forEach(function(client) {
+            (client.modules || []).forEach(function(module) {
+                if (!billed.has(client.id + "|" + module)) {
+                    setTimeout(function() {
+                        window.open("client-detail.html?id=" + encodeURIComponent(client.id) + "&automodule=" + encodeURIComponent(module) + "&tab=invoices", "_blank");
+                    }, count * 400);
+                    count++;
+                }
+            });
+        });
+        if (count === 0) showToastIdx("Tout est déjà facturé ce mois !");
+    }
+
+    let toastTimerIdx;
+    function showToastIdx(msg) {
+        let t = document.getElementById("toast");
+        if (!t) return;
+        t.textContent = msg;
+        t.classList.add("show");
+        clearTimeout(toastTimerIdx);
+        toastTimerIdx = setTimeout(function() { t.classList.remove("show"); }, 2500);
+    }
+
+    // ---- Déconnexion ----
+    async function handleLogout() {
+        await auth.signOut();
+        window.location.href = "login.html";
+    }
+
+    // ---- Admin : liste clients ----
+    async function loadClientsList() {
+        const list = document.getElementById("clients-list");
+        list.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--gray);">Chargement…</td></tr>';
+        try {
+            const snap = await db.collection("users").where("role", "==", "client").get();
+            list.innerHTML = "";
+            if (snap.empty) {
+                list.innerHTML = '<tr><td colspan="4" style="padding:24px;text-align:center;color:var(--gray);">Aucun client.</td></tr>';
+                return;
+            }
+            snap.forEach(doc => {
+                const c = doc.data(); const id = doc.id;
+                const tr = document.createElement("tr");
+                tr.classList.add("client-row");
+                tr.innerHTML = `<td>${c.companyName||"—"}</td><td style="color:var(--gray);">${c.domainName||"—"}</td><td style="color:var(--gray);">${c.email||"—"}</td><td style="text-align:right;"><button id="g-${id}" class="btn-manage">Gérer →</button></td>`;
+                list.appendChild(tr);
+                document.getElementById(`g-${id}`).addEventListener("click", () => { window.location.href = `client-detail.html?id=${id}`; });
+            });
+        } catch (e) {
+            console.error(e);
+            list.innerHTML = '<tr><td colspan="4" style="padding:24px;text-align:center;color:var(--danger);">Erreur de chargement.</td></tr>';
+        }
+    }
+
+    function filterClients() {
+        const v = document.getElementById("search-client").value.toLowerCase();
+        document.querySelectorAll(".client-row").forEach(r => {
+            r.style.display = r.textContent.toLowerCase().includes(v) ? "" : "none";
+        });
+    }
+
+    // ---- Admin : créer client ----
+    async function createNewClient() {
+        const company = document.getElementById("new-client-company").value.trim();
+        const domain  = document.getElementById("new-client-domain").value.trim();
+        const email   = document.getElementById("new-client-email").value.trim();
+        const pwd     = document.getElementById("new-client-pwd").value;
+        const pwdC    = document.getElementById("new-client-pwd-confirm").value;
+        const btn     = document.getElementById("btn-create-client");
+        const ok      = document.getElementById("create-msg");
+        const err     = document.getElementById("create-error");
+
+        ok.style.display = "none"; err.style.display = "none";
+        if (!company || !email || !pwd || !pwdC) { err.textContent = "Remplissez tous les champs."; err.style.display = "block"; return; }
+        if (pwd !== pwdC)   { err.textContent = "Mots de passe différents."; err.style.display = "block"; return; }
+        if (pwd.length < 6) { err.textContent = "Mot de passe trop court (6 caractères min)."; err.style.display = "block"; return; }
+
+        btn.textContent = "Création…"; btn.style.opacity = "0.7";
+        try {
+            const cred = await secondaryAuth.createUserWithEmailAndPassword(email, pwd);
+            // Champs optionnels
+            const siret   = document.getElementById("new-client-siret").value.trim();
+            const tva     = document.getElementById("new-client-tva").value.trim();
+            const phone   = document.getElementById("new-client-phone").value.trim();
+            const forme   = document.getElementById("new-client-forme").value;
+            const address = document.getElementById("new-client-address").value.trim();
+            const zip     = document.getElementById("new-client-zip").value.trim();
+            const city    = document.getElementById("new-client-city").value.trim();
+
+            const clientDoc = {
+                email, companyName: company, domainName: domain,
+                role: "client", modules: [], createdAt: new Date().toISOString()
+            };
+            if (siret)   clientDoc.siret   = siret;
+            if (tva)     clientDoc.tva     = tva;
+            if (phone)   clientDoc.phone   = phone;
+            if (forme)   clientDoc.forme   = forme;
+            if (address) clientDoc.address = address;
+            if (zip)     clientDoc.zip     = zip;
+            if (city)    clientDoc.city    = city;
+
+            const newUid = cred.user.uid;
+            await db.collection("users").doc(newUid).set(clientDoc);
+            await secondaryAuth.signOut();
+            btn.textContent = "Créer le compte"; btn.style.opacity = "1";
+
+            // Message succès + bouton raccourci vers la fiche
+            ok.innerHTML = "Client créé avec succès !"
+                + '<br><a href="client-detail.html?id=' + newUid + '&tab=invoices" '
+                + 'style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;'
+                + 'background:var(--primary);color:#fff;text-decoration:none;'
+                + 'padding:9px 16px;border-radius:8px;font-size:13px;font-weight:700;">'
+                + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'
+                + ' Accéder à la fiche &amp; facturer</a>';
+            ok.style.display = "block";
+
+            ["new-client-company","new-client-domain","new-client-email","new-client-pwd","new-client-pwd-confirm",
+             "new-client-siret","new-client-tva","new-client-phone","new-client-address","new-client-zip","new-client-city"]
+                .forEach(id => { document.getElementById(id).value = ""; });
+            document.getElementById("new-client-forme").value = "";
+        } catch (e) {
+            btn.textContent = "Créer le compte"; btn.style.opacity = "1";
+            err.textContent = e.code === "auth/email-already-in-use" ? "Email déjà utilisé." : "Erreur : " + e.message;
+            err.style.display = "block";
+        }
+    }
+
+    // ---- Modal modules ----
+    let currentClientId = null;
+
+    function openModal(clientId, clientName, modules) {
+        currentClientId = clientId;
+        document.getElementById("modal-client-name").textContent = clientName;
+        document.getElementById("modal-success").style.display = "none";
+        const ids  = ["mod-site","mod-carte","mod-roue","mod-fidelite"];
+        const vals = ["Site Internet","Carte Digitale","Roue d'Avis","Web Fidelite"];
+        ids.forEach((id, i) => {
+            const cb = document.getElementById(id);
+            cb.checked = modules.includes(vals[i]);
+            styleRow(cb);
+            cb.onchange = () => styleRow(cb);
+        });
+        document.getElementById("modal-manage").style.display = "flex";
+    }
+
+    function styleRow(cb) {
+        const row = cb.closest("label");
+        if (cb.checked) { row.style.borderColor = "var(--primary)"; row.style.background = "var(--primary-soft)"; }
+        else            { row.style.borderColor = "var(--border)";   row.style.background = "transparent"; }
+    }
+
+    function closeModal() {
+        document.getElementById("modal-manage").style.display = "none";
+        currentClientId = null;
+    }
+
+    document.getElementById("modal-manage").addEventListener("click", e => {
+        if (e.target === document.getElementById("modal-manage")) closeModal();
+    });
+
+    async function saveClientModules() {
+        if (!currentClientId) return;
+        const ids  = ["mod-site","mod-carte","mod-roue","mod-fidelite"];
+        const vals = ["Site Internet","Carte Digitale","Roue d'Avis","Web Fidelite"];
+        const sel  = vals.filter((v, i) => document.getElementById(ids[i]).checked);
+        const btn  = document.getElementById("btn-save-modules");
+        btn.textContent = "Enregistrement…"; btn.style.opacity = "0.7";
+        try {
+            await db.collection("users").doc(currentClientId).update({ modules: sel });
+            btn.textContent = "Enregistrer"; btn.style.opacity = "1";
+            document.getElementById("modal-success").style.display = "block";
+            setTimeout(() => { closeModal(); loadClientsList(); }, 1500);
+        } catch (e) {
+            console.error(e);
+            btn.textContent = "Enregistrer"; btn.style.opacity = "1";
+            alert("Erreur de sauvegarde.");
+        }
+    }
+
+    // ════════════════════════════════════════
+    //  TICKETS — CLIENT
+    // ════════════════════════════════════════
+    async function submitTicket() {
+        const module  = document.getElementById("ticket-module").value;
+        const objet   = document.getElementById("ticket-objet").value.trim();
+        const message = document.getElementById("ticket-message").value.trim();
+        const okEl    = document.getElementById("ticket-ok");
+        const errEl   = document.getElementById("ticket-err");
+        okEl.style.display = "none";
+        errEl.style.display = "none";
+
+        if (!module)  { errEl.textContent = "Veuillez sélectionner un module."; errEl.style.display = "inline"; return; }
+        if (!objet)   { errEl.textContent = "L'objet du ticket est requis.";     errEl.style.display = "inline"; return; }
+        if (!message) { errEl.textContent = "Veuillez rédiger un message.";      errEl.style.display = "inline"; return; }
+
+        const user = auth.currentUser;
+        if (!user) return;
+
+        try {
+            const userSnap = await db.collection("users").doc(user.uid).get();
+            const clientName = userSnap.data().companyName || userSnap.data().email || user.uid;
+
+            await db.collection("tickets").add({
+                clientId:   user.uid,
+                clientName: clientName,
+                module:     module,
+                objet:      objet,
+                message:    message,
+                statut:     "ouvert",
+                createdAt:  new Date().toISOString()
+            });
+
+            document.getElementById("ticket-module").value  = "";
+            document.getElementById("ticket-objet").value   = "";
+            document.getElementById("ticket-message").value = "";
+            okEl.style.display = "inline";
+            setTimeout(() => { okEl.style.display = "none"; }, 4000);
+            loadClientTickets();
+        } catch(e) {
+            console.error(e);
+            errEl.textContent = "Erreur lors de l'envoi. Réessayez.";
+            errEl.style.display = "inline";
+        }
+    }
+
+    async function loadClientTickets() {
+        const tbody = document.getElementById("client-tickets-tbody");
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--gray);">Chargement…</td></tr>';
+        const user = auth.currentUser;
+        if (!user) return;
+
+        try {
+            const snap = await db.collection("tickets")
+                .where("clientId", "==", user.uid)
+                .get();
+
+            if (snap.empty) {
+                tbody.innerHTML = `<tr><td colspan="4" style="padding:0;border:none;">
+                    <div class="table-state">
+                        <div class="table-state-icon">🎫</div>
+                        <div class="table-state-title">Aucun ticket</div>
+                        <div class="table-state-sub">Vos tickets apparaîtront ici.</div>
+                    </div></td></tr>`;
+                return;
+            }
+
+            // Tri côté client — plus récent en premier (évite l'index composite Firestore)
+            const docs = snap.docs.slice().sort((a, b) =>
+                (b.data().createdAt || "").localeCompare(a.data().createdAt || "")
+            );
+
+            tbody.innerHTML = docs.map(doc => {
+                const t = doc.data();
+                const badge = t.statut === "ferme"
+                    ? '<span class="ticket-badge ferme">✅ Fermé</span>'
+                    : '<span class="ticket-badge ouvert">🟡 Ouvert</span>';
+                const date = t.createdAt ? new Date(t.createdAt).toLocaleDateString("fr-FR") : "—";
+                return `<tr>
+                    <td>${esc(t.module)}</td>
+                    <td style="font-weight:600;">${esc(t.objet)}</td>
+                    <td style="color:var(--gray);">${date}</td>
+                    <td>${badge}</td>
+                </tr>`;
+            }).join("");
+        } catch(e) {
+            console.error(e);
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--danger);">Erreur de chargement.</td></tr>';
+        }
+    }
+
+    // ════════════════════════════════════════
+    //  TICKETS — ADMIN
+    // ════════════════════════════════════════
+    let allAdminTickets = [];
+    let currentTicket   = null;
+
+    async function loadAdminTickets() {
+        const tbody = document.getElementById("adm-tk-tbody");
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--gray);">Chargement…</td></tr>';
+
+        try {
+            db.collection("tickets")
+                .orderBy("createdAt", "desc")
+                .onSnapshot(snap => {
+                    allAdminTickets = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    filterAdminTickets();
+
+                    // Badge compteur tickets ouverts
+                    const ouverts = allAdminTickets.filter(t => t.statut === "ouvert").length;
+                    const badge = document.getElementById("admin-ticket-count");
+                    if (badge) {
+                        badge.textContent = ouverts;
+                        badge.style.display = "inline";
+                    }
+                });
+        } catch(e) {
+            console.error(e);
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--danger);">Erreur de chargement.</td></tr>';
+        }
+    }
+
+    function filterAdminTickets() {
+        const search  = (document.getElementById("adm-tk-search")?.value || "").toLowerCase().trim();
+        const statut  = document.getElementById("adm-tk-filter")?.value || "";
+        const filtered = allAdminTickets.filter(t => {
+            const matchSearch = !search ||
+                (t.clientName || "").toLowerCase().includes(search) ||
+                (t.module     || "").toLowerCase().includes(search) ||
+                (t.objet      || "").toLowerCase().includes(search);
+            const matchStatut = !statut || t.statut === statut;
+            return matchSearch && matchStatut;
+        });
+        renderAdminTickets(filtered);
+    }
+
+    function renderAdminTickets(tickets) {
+        const ouverts = tickets.filter(t => t.statut === "ouvert").length;
+        const fermes  = tickets.filter(t => t.statut === "ferme").length;
+        const total   = tickets.length;
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        set("adm-tk-ouverts", ouverts);
+        set("adm-tk-fermes",  fermes);
+        set("adm-tk-total",   total);
+        set("adm-tk-count",   total + " résultat" + (total > 1 ? "s" : ""));
+
+        const tbody = document.getElementById("adm-tk-tbody");
+        if (!tbody) return;
+
+        if (total === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="padding:0;border:none;">
+                <div class="table-state">
+                    <div class="table-state-icon">🎫</div>
+                    <div class="table-state-title">Aucun ticket</div>
+                    <div class="table-state-sub">Les tickets de vos clients apparaîtront ici.</div>
+                </div></td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = tickets.map(t => {
+            const badge = t.statut === "ferme"
+                ? '<span class="ticket-badge ferme">✅ Fermé</span>'
+                : '<span class="ticket-badge ouvert">🟡 Ouvert</span>';
+            const date = t.createdAt ? new Date(t.createdAt).toLocaleDateString("fr-FR") : "—";
+            return `<tr class="admin-ticket-row" onclick="openTicketModal('${esc(t.id)}')">
+                <td>${esc(t.clientName)}</td>
+                <td>${esc(t.module)}</td>
+                <td style="font-weight:600;">${esc(t.objet)}</td>
+                <td style="color:var(--gray);">${date}</td>
+                <td>${badge}</td>
+                <td style="text-align:right;">
+                    <button class="btn-manage" onclick="event.stopPropagation();openTicketModal('${esc(t.id)}')">Voir →</button>
+                </td>
+            </tr>`;
+        }).join("");
+    }
+
+    function openTicketModal(ticketId) {
+        currentTicket = allAdminTickets.find(t => t.id === ticketId);
+        if (!currentTicket) return;
+        document.getElementById("modal-tk-client").textContent  = currentTicket.clientName || "—";
+        document.getElementById("modal-tk-module").textContent  = currentTicket.module  || "—";
+        document.getElementById("modal-tk-objet").textContent   = currentTicket.objet   || "—";
+        document.getElementById("modal-tk-message").textContent = currentTicket.message || "—";
+        const date = currentTicket.createdAt ? new Date(currentTicket.createdAt).toLocaleString("fr-FR") : "—";
+        document.getElementById("modal-tk-date").textContent = date;
+        const btnClose  = document.getElementById("btn-close-ticket");
+        const btnReopen = document.getElementById("btn-reopen-ticket");
+        if (currentTicket.statut === "ferme") {
+            btnClose.style.display  = "none";
+            btnReopen.style.display = "";
+            btnReopen.textContent   = "🔄 Rouvrir le ticket";
+            btnReopen.style.opacity = "1";
+        } else {
+            btnClose.style.display  = "";
+            btnClose.textContent    = "✅ Marquer comme traité";
+            btnClose.style.opacity  = "1";
+            btnReopen.style.display = "none";
+        }
+        document.getElementById("modal-ticket").style.display = "flex";
+    }
+
+    function closeTicketModal() {
+        document.getElementById("modal-ticket").style.display = "none";
+        currentTicket = null;
+    }
+
+    async function closeTicket() {
+        if (!currentTicket) return;
+        const btn = document.getElementById("btn-close-ticket");
+        btn.textContent = "Fermeture…"; btn.style.opacity = "0.7";
+        try {
+            await db.collection("tickets").doc(currentTicket.id).update({ statut: "ferme" });
+            btn.textContent = "✅ Marquer comme traité"; btn.style.opacity = "1";
+            closeTicketModal();
+        } catch(e) {
+            console.error(e);
+            btn.textContent = "Erreur — réessayer"; btn.style.opacity = "1";
+        }
+    }
+
+    async function reopenTicket() {
+        if (!currentTicket) return;
+        const btn = document.getElementById("btn-reopen-ticket");
+        btn.textContent = "Réouverture…"; btn.style.opacity = "0.7";
+        try {
+            await db.collection("tickets").doc(currentTicket.id).update({ statut: "ouvert" });
+            btn.textContent = "🔄 Rouvrir le ticket"; btn.style.opacity = "1";
+            closeTicketModal();
+        } catch(e) {
+            console.error(e);
+            btn.textContent = "Erreur — réessayer"; btn.style.opacity = "1";
+        }
+    }
+
+    async function deleteTicket() {
+        if (!currentTicket) return;
+        const btn = document.getElementById("btn-delete-ticket");
+        btn.textContent = "Suppression…"; btn.style.opacity = "0.7";
+        try {
+            await db.collection("tickets").doc(currentTicket.id).delete();
+            closeTicketModal();
+        } catch(e) {
+            console.error(e);
+            btn.textContent = "🗑 Supprimer"; btn.style.opacity = "1";
+            alert("Erreur lors de la suppression.");
+        }
+    }
+
+    // Fermer modale ticket au clic sur l'overlay
+    document.getElementById("modal-ticket").addEventListener("click", e => {
+        if (e.target === document.getElementById("modal-ticket")) closeTicketModal();
+    });
+
+    // ════════════════════════════════════════════════════════
+    //  FACTURE PONCTUELLE — SYSTÈME COMPLET
+    // ════════════════════════════════════════════════════════
+
+    const WORKER_URL = "https://rylia-dashboard.lingering-tree-a29d.workers.dev";
+    const WORKER_SECRET = "rylia2024secret";
+
+    const RYLIA_INFO = {
+        name:    "Cyrille THEMONT (RYLIA)",
+        siret:   "102 290 921 00018",
+        address: "47 rue Vivienne",
+        zip:     "75002",
+        city:    "Paris",
+        email:   "contact@rylia.fr"
+    };
+
+    let miClientsLoaded = false;
+    let miSelectedClient = null;
+
+    function populateManualInvClients() {
+        // Remplir la période
+        const periode = getCurrentPeriodeIdx();
+        const label   = getPeriodeLabelIdx(periode);
+        const periodeInput = document.getElementById("mi-periode-label");
+        if (periodeInput) periodeInput.value = label;
+        document.getElementById("mi-recap-periode").textContent = label;
+
+        // Remplir le dropdown clients (éviter de recharger si déjà fait)
+        if (miClientsLoaded && adminClients.length > 0) return;
+
+        const select = document.getElementById("mi-client");
+        if (!select) return;
+
+        // Attendre que adminClients soit rempli
+        const checkInterval = setInterval(() => {
+            if (adminClients.length > 0) {
+                clearInterval(checkInterval);
+                select.innerHTML = '<option value="">— Sélectionner un client —</option>';
+                adminClients.forEach(c => {
+                    const opt = document.createElement("option");
+                    opt.value = c.id;
+                    opt.textContent = c.name + (c.email ? " — " + c.email : "");
+                    select.appendChild(opt);
+                });
+                miClientsLoaded = true;
+            }
+        }, 200);
+
+        // Timeout de sécurité
+        setTimeout(() => clearInterval(checkInterval), 8000);
+    }
+
+    function onManualInvClientChange() {
+        const select   = document.getElementById("mi-client");
+        const clientId = select.value;
+        const recap    = document.getElementById("mi-client-recap");
+
+        if (!clientId) {
+            miSelectedClient = null;
+            recap.innerHTML = '<span style="font-style:italic;color:var(--gray);">Aucun client sélectionné.</span>';
+            return;
+        }
+
+        const client = adminClients.find(c => c.id === clientId);
+        if (!client) return;
+
+        // Charger les données complètes du client
+        db.collection("users").doc(clientId).get().then(snap => {
+            if (!snap.exists) return;
+            const d = snap.data();
+            miSelectedClient = { id: clientId, ...d };
+
+            recap.innerHTML = ''
+                + '<div style="font-weight:700;font-size:15px;color:var(--dark);margin-bottom:6px;">' + escHtml(d.companyName || "—") + '</div>'
+                + '<div style="font-size:12px;color:var(--gray);line-height:1.6;">'
+                + '📧 ' + escHtml(d.email || "—") + '<br>'
+                + (d.domainName ? '🌐 ' + escHtml(d.domainName) + '<br>' : '')
+                + (d.siret ? 'SIRET : ' + escHtml(d.siret) + '<br>' : '')
+                + (d.address ? '📍 ' + escHtml(d.address) + (d.zip ? ', ' + escHtml(d.zip) : '') + (d.city ? ' ' + escHtml(d.city) : '') : '')
+                + '</div>';
+        });
+
+        updateManualInvRecap();
+    }
+
+    // Mise à jour en temps réel du récapitulatif
+    document.addEventListener("input", function(e) {
+        if (e.target.id === "mi-description" || e.target.id === "mi-montant") {
+            updateManualInvRecap();
+        }
+    });
+
+    function updateManualInvRecap() {
+        const desc    = document.getElementById("mi-description").value.trim() || "—";
+        const montant = parseFloat(document.getElementById("mi-montant").value) || 0;
+        document.getElementById("mi-recap-desc").textContent    = desc;
+        document.getElementById("mi-recap-montant").textContent = montant > 0 ? montant.toFixed(2) + " €" : "— €";
+    }
+
+    function previewManualInvoice() {
+        const errEl = document.getElementById("mi-error");
+        errEl.style.display = "none";
+
+        const clientId   = document.getElementById("mi-client").value;
+        const description = document.getElementById("mi-description").value.trim();
+        const montant     = parseFloat(document.getElementById("mi-montant").value);
+
+        if (!clientId)     { errEl.textContent = "Veuillez sélectionner un client.";    errEl.style.display = "inline"; return; }
+        if (!description)  { errEl.textContent = "Le libellé est obligatoire.";          errEl.style.display = "inline"; return; }
+        if (!montant || montant <= 0) { errEl.textContent = "Le montant doit être supérieur à 0."; errEl.style.display = "inline"; return; }
+        if (!miSelectedClient) { errEl.textContent = "Données client en chargement…";   errEl.style.display = "inline"; return; }
+
+        const periode = getCurrentPeriodeIdx();
+        const label   = getPeriodeLabelIdx(periode);
+
+        // Remplir la modale
+        document.getElementById("mi-prev-desc").textContent    = description;
+        document.getElementById("mi-prev-montant").textContent = montant.toFixed(2) + " €";
+        document.getElementById("mi-prev-numero").textContent  = "RYLIA-" + periode + "-???";
+        document.getElementById("mi-prev-periode").textContent = label;
+        document.getElementById("mi-prev-client").textContent  = miSelectedClient.companyName || "—";
+        document.getElementById("mi-prev-email").textContent   = miSelectedClient.email || "—";
+        document.getElementById("mi-prev-subtitle").textContent = description;
+        document.getElementById("mi-prev-status").textContent  = "";
+
+        const btn = document.getElementById("mi-btn-confirm");
+        btn.disabled = false;
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Confirmer et envoyer';
+
+        document.getElementById("mi-preview-modal").classList.add("open");
+    }
+
+    function closeManualPreview() {
+        document.getElementById("mi-preview-modal").classList.remove("open");
+    }
+
+    document.getElementById("mi-preview-modal").addEventListener("click", function(e) {
+        if (e.target === this) closeManualPreview();
+    });
+
+    async function getNextInvoiceNumberManual(periode) {
+        return await db.runTransaction(async tx => {
+            const ref  = db.collection("users").doc("_settings");
+            const doc  = await tx.get(ref);
+            const data = doc.exists ? doc.data() : {};
+            const counters = data.invoiceCounters || {};
+            const current  = counters[periode] || 0;
+            const next     = current + 1;
+            tx.set(ref, { invoiceCounters: Object.assign({}, counters, { [periode]: next }) }, { merge: true });
+            return "RYLIA-" + periode + "-" + String(next).padStart(3, "0");
+        });
+    }
+
+    async function confirmManualInvoice() {
+        const description  = document.getElementById("mi-description").value.trim();
+        const montant      = parseFloat(document.getElementById("mi-montant").value);
+        const periode      = getCurrentPeriodeIdx();
+        const periodeLabel = getPeriodeLabelIdx(periode);
+        const client       = miSelectedClient;
+
+        const btn    = document.getElementById("mi-btn-confirm");
+        const status = document.getElementById("mi-prev-status");
+        btn.disabled = true;
+        status.textContent = "";
+
+        try {
+            // 1. Numérotation
+            btn.textContent = "Numérotation…";
+            const numero = await getNextInvoiceNumberManual(periode);
+            document.getElementById("mi-prev-numero").textContent = numero;
+
+            // 2. Génération PDF
+            btn.textContent = "Génération PDF…";
+            const pdfBase64 = generateManualPdf(numero, description, montant, periode, periodeLabel);
+
+            // 3. Upload Storage
+            btn.textContent = "Upload…";
+            const fileName    = numero + ".pdf";
+            const storagePath = "invoices/" + client.id + "/" + fileName;
+            const storageRef  = firebase.storage();
+            const pdfBytes    = Uint8Array.from(atob(pdfBase64), function(c) { return c.charCodeAt(0); });
+            const blob        = new Blob([pdfBytes], { type: "application/pdf" });
+
+            await new Promise(function(resolve, reject) {
+                storageRef.ref(storagePath).put(blob).on("state_changed", null, reject, resolve);
+            });
+            const fileUrl = await storageRef.ref(storagePath).getDownloadURL();
+
+            // 4. Sauvegarde Firestore
+            btn.textContent = "Enregistrement…";
+            const invoiceRef = await db.collection("users").doc(client.id).collection("invoices").add({
+                numero, periode, description,
+                montant: montant,
+                statut: "attente",
+                auto: false,
+                ponctuelle: true,
+                fileUrl, fileName, storagePath,
+                emailEnvoye: false,
+                createdAt: new Date().toISOString()
+            });
+
+            // 5. Email client
+            btn.textContent = "Envoi email client…";
+            const emailSent = await sendManualBrevoEmail(
+                client.email, client.companyName || client.email,
+                numero, description, montant, periodeLabel, pdfBase64, fileName
+            );
+
+            // 6. Mise à jour emailEnvoye
+            await invoiceRef.update({ emailEnvoye: emailSent, emailDate: new Date().toISOString() });
+
+            // 7. Log activité
+            try {
+                await db.collection("users").doc(client.id).collection("activityLog").add({
+                    action: "facture_ponctuelle",
+                    description, numero,
+                    emailEnvoye: emailSent,
+                    adminEmail: auth.currentUser ? auth.currentUser.email : "—",
+                    timestamp: new Date().toISOString()
+                });
+            } catch(e) { console.error("Log:", e); }
+
+            // 8. Email confirmation admin
+            btn.textContent = "Confirmation admin…";
+            await sendManualBrevoConfirmAdmin(numero, client.companyName || client.email, description, montant, periodeLabel, emailSent);
+
+            // 9. Succès
+            status.innerHTML = "<span style='color:var(--success);'>✅ Facture " + escHtml(numero) + " envoyée à " + escHtml(client.email) + "</span>";
+            btn.textContent = "Envoyée !";
+            showToastIdx("Facture " + numero + " envoyée !");
+
+            // Reset formulaire
+            setTimeout(function() {
+                closeManualPreview();
+                document.getElementById("mi-description").value = "";
+                document.getElementById("mi-montant").value     = "";
+                updateManualInvRecap();
+            }, 2500);
+
+        } catch(e) {
+            console.error("Erreur facture ponctuelle:", e);
+            status.innerHTML = "<span style='color:var(--danger);'>Erreur : " + escHtml(e.message || "Réessayez.") + "</span>";
+            btn.disabled = false;
+            btn.textContent = "Réessayer";
+        }
+    }
+
+    function generateManualPdf(numero, description, prix, periode, periodeLabel) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: "mm", format: "a4" });
+        const W = 210, H = 297;
+        const now     = new Date();
+        const dateStr = now.toLocaleDateString("fr-FR");
+        const client  = miSelectedClient;
+
+        // ═══ HEADER ORANGE ═══
+        doc.setFillColor(255, 140, 0);
+        doc.rect(0, 0, W, 46, "F");
+        doc.setFillColor(255, 157, 26);
+        doc.circle(W - 22, 8, 32, "F");
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(24); doc.setTextColor(255, 255, 255);
+        doc.text("RYLIA", 15, 18);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+        doc.text("Solutions digitales pour les professionnels", 15, 24);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(18); doc.setTextColor(255, 255, 255);
+        doc.text("FACTURE", W - 15, 14, { align: "right" });
+        doc.setFontSize(11);
+        doc.text(numero, W - 15, 21, { align: "right" });
+        doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+        doc.text("Date : " + dateStr, W - 15, 28, { align: "right" });
+        doc.text("Période : " + periodeLabel, W - 15, 34, { align: "right" });
+
+        // ═══ ÉMETTEUR ═══
+        var y = 56;
+        doc.setFont("helvetica", "bold"); doc.setFontSize(7);
+        doc.setTextColor(107, 114, 128);
+        doc.text("ÉMETTEUR", 15, y);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(11);
+        doc.setTextColor(17, 24, 39);
+        doc.text("Cyrille THEMONT (RYLIA)", 15, y + 6);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+        doc.setTextColor(107, 114, 128);
+        ["47 rue Vivienne", "75002, Paris", "contact@rylia.fr", "SIRET : 102 290 921 00018", "TVA non applicable — art. 293B du CGI"]
+        .forEach(function(line, i) { doc.text(line, 15, y + 12 + i * 5.5); });
+
+        // ═══ FACTURÉ À ═══
+        var rx = W / 2 + 5, rw = W / 2 - 20;
+        doc.setFillColor(249, 250, 251);
+        doc.roundedRect(rx, y - 3, rw, 45, 3, 3, "F");
+        doc.setDrawColor(229, 231, 235); doc.setLineWidth(0.3);
+        doc.roundedRect(rx, y - 3, rw, 45, 3, 3, "S");
+        doc.setFont("helvetica", "bold"); doc.setFontSize(7);
+        doc.setTextColor(107, 114, 128);
+        doc.text("FACTURÉ À", rx + 5, y);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(11);
+        doc.setTextColor(17, 24, 39);
+        doc.text(client.companyName || "—", rx + 5, y + 6);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+        doc.setTextColor(107, 114, 128);
+        var cLines = [client.email || "—"];
+        if (client.siret) cLines.push("SIRET : " + client.siret);
+        if (client.address) cLines.push(client.address);
+        var cpV = [];
+        if (client.zip) cpV.push(client.zip);
+        if (client.city) cpV.push(client.city);
+        if (cpV.length) cLines.push(cpV.join(" "));
+        if (client.phone) cLines.push("Tél : " + client.phone);
+        cLines.forEach(function(line, i) { doc.text(line, rx + 5, y + 12 + i * 5.5); });
+
+        // ═══ SÉPARATEUR ═══
+        y = 110;
+        doc.setDrawColor(229, 231, 235); doc.setLineWidth(0.4);
+        doc.line(15, y, W - 15, y);
+
+        // ═══ TABLEAU ═══
+        y += 6;
+        doc.setFillColor(17, 24, 39);
+        doc.rect(15, y, W - 30, 9, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(8);
+        doc.text("Description", 18, y + 5.5);
+        doc.text("Période", 120, y + 5.5);
+        doc.text("Montant", W - 18, y + 5.5, { align: "right" });
+        y += 9;
+        doc.setFillColor(255, 255, 255);
+        doc.rect(15, y, W - 30, 10, "F");
+        doc.setTextColor(17, 24, 39);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+        doc.text(description.substring(0, 60), 18, y + 6);
+        doc.text(periodeLabel, 120, y + 6);
+        doc.setFont("helvetica", "bold");
+        doc.text(prix.toFixed(2) + " €", W - 18, y + 6, { align: "right" });
+        doc.setDrawColor(229, 231, 235); doc.setLineWidth(0.3);
+        doc.rect(15, y - 9, W - 30, 19, "S");
+
+        // ═══ NET À PAYER ═══
+        y += 17;
+        doc.setDrawColor(229, 231, 235);
+        doc.line(W - 80, y, W - 15, y);
+        y += 5;
+        doc.setFillColor(255, 140, 0);
+        doc.roundedRect(W - 80, y - 3, 65, 13, 3, 3, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+        doc.text("NET À PAYER", W - 76, y + 3.5);
+        doc.setFontSize(13);
+        doc.text(prix.toFixed(2) + " €", W - 17, y + 4.5, { align: "right" });
+
+        // ═══ MENTION TVA ═══
+        y += 16;
+        doc.setFont("helvetica", "italic"); doc.setFontSize(8);
+        doc.setTextColor(107, 114, 128);
+        doc.text("TVA non applicable — art. 293B du CGI", 15, y);
+
+        // ═══ FOOTER ═══
+        doc.setFillColor(17, 24, 39);
+        doc.rect(0, H - 20, W, 20, "F");
+        doc.setFont("helvetica", "normal"); doc.setFontSize(7.5);
+        doc.setTextColor(156, 163, 175);
+        doc.text("Cyrille THEMONT (RYLIA) — 47 Rue Vivienne, 75002 Paris — SIRET : 102 290 921 00018", W / 2, H - 13, { align: "center" });
+        doc.text("TVA non applicable, article 293B du CGI — contact@rylia.fr", W / 2, H - 8, { align: "center" });
+        doc.text("Document généré automatiquement le " + dateStr + " — rylia.fr", W / 2, H - 3, { align: "center" });
+
+        return doc.output("datauristring").split(",")[1];
+    }
+
+    async function sendManualBrevoEmail(toEmail, toName, numero, description, prix, periodeLabel, pdfBase64, fileName) {
+        try {
+            var resp = await fetch(WORKER_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + WORKER_SECRET },
+                body: JSON.stringify({
+                    sender: { name: "Rylia", email: "contact@rylia.fr" },
+                    to: [{ email: toEmail, name: toName }],
+                    subject: "Votre facture Rylia — " + numero,
+                    htmlContent: "<div style=\"font-family:Segoe UI,sans-serif;max-width:600px;margin:0 auto;\"><div style=\"background:linear-gradient(135deg,#FF8C00,#E06200);padding:28px;border-radius:12px 12px 0 0;\"><h1 style=\"color:#fff;font-size:22px;margin:0;font-weight:800;\">RYLIA</h1><p style=\"color:rgba(255,255,255,.78);margin:6px 0 0;font-size:12px;\">Solutions digitales pour les professionnels</p></div><div style=\"background:#fff;padding:28px;border:1px solid #E5E7EB;border-top:none;\"><p style=\"font-size:15px;font-weight:600;color:#111827;\">Bonjour " + toName + ",</p><p style=\"color:#6B7280;font-size:14px;line-height:1.7;\">Veuillez trouver ci-joint votre facture <strong style=\"color:#111827;\">" + numero + "</strong> pour <strong style=\"color:#FF8C00;\">" + description + "</strong> — <strong>" + periodeLabel + "</strong>.</p><div style=\"background:#FFF4E5;border-left:3px solid #FF8C00;border-radius:8px;padding:14px 18px;margin:18px 0;\"><div style=\"font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#6B7280;margin-bottom:5px;\">Récapitulatif</div><div style=\"display:flex;justify-content:space-between;align-items:center;\"><span style=\"font-size:13px;color:#111827;\">" + description + " — " + periodeLabel + "</span><span style=\"font-size:18px;font-weight:800;color:#FF8C00;\">" + prix.toFixed(2) + " €</span></div><div style=\"font-size:11px;color:#9CA3AF;margin-top:3px;\">TVA non applicable — art. 293B du CGI</div></div><p style=\"color:#6B7280;font-size:13px;\">Le PDF est joint à cet email et disponible dans votre espace client.</p><hr style=\"border:none;border-top:1px solid #E5E7EB;margin:20px 0;\"><p style=\"color:#9CA3AF;font-size:11px;\">Questions ? <a href=\"mailto:contact@rylia.fr\" style=\"color:#FF8C00;\">contact@rylia.fr</a></p></div><div style=\"background:#111827;padding:14px 28px;text-align:center;border-radius:0 0 12px 12px;\"><p style=\"color:#9CA3AF;font-size:10px;margin:0;\">Cyrille THEMONT (RYLIA) — 47 rue Vivienne, 75002 Paris — SIRET : 102 290 921 00018</p></div></div>",
+                    attachment: [{ content: pdfBase64, name: fileName }]
+                })
+            });
+            return resp.ok;
+        } catch(e) {
+            console.error("Email error:", e);
+            return false;
+        }
+    }
+
+    async function sendManualBrevoConfirmAdmin(numero, clientName, description, prix, periodeLabel, emailSent) {
+        try {
+            await fetch(WORKER_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + WORKER_SECRET },
+                body: JSON.stringify({
+                    sender: { name: "Rylia Dashboard", email: "contact@rylia.fr" },
+                    to: [{ email: "contact@rylia.fr", name: "Rylia" }],
+                    subject: "✓ Facture ponctuelle " + numero + " — " + clientName,
+                    htmlContent: "<div style=\"font-family:Segoe UI,sans-serif;max-width:480px;margin:0 auto;padding:24px;\"><h2 style=\"color:#FF8C00;margin-bottom:18px;\">✓ Facture ponctuelle envoyée</h2><table style=\"width:100%;border-collapse:collapse;\"><tr><td style=\"padding:8px 0;color:#6B7280;font-size:13px;border-bottom:1px solid #E5E7EB;\">Facture</td><td style=\"padding:8px 0;font-weight:600;font-size:13px;border-bottom:1px solid #E5E7EB;\">" + numero + "</td></tr><tr><td style=\"padding:8px 0;color:#6B7280;font-size:13px;border-bottom:1px solid #E5E7EB;\">Client</td><td style=\"padding:8px 0;font-weight:600;font-size:13px;border-bottom:1px solid #E5E7EB;\">" + clientName + "</td></tr><tr><td style=\"padding:8px 0;color:#6B7280;font-size:13px;border-bottom:1px solid #E5E7EB;\">Description</td><td style=\"padding:8px 0;font-weight:600;font-size:13px;border-bottom:1px solid #E5E7EB;\">" + description + "</td></tr><tr><td style=\"padding:8px 0;color:#6B7280;font-size:13px;border-bottom:1px solid #E5E7EB;\">Montant</td><td style=\"padding:8px 0;font-weight:600;font-size:13px;border-bottom:1px solid #E5E7EB;\">" + prix.toFixed(2) + " €</td></tr><tr><td style=\"padding:8px 0;color:#6B7280;font-size:13px;border-bottom:1px solid #E5E7EB;\">Période</td><td style=\"padding:8px 0;font-weight:600;font-size:13px;border-bottom:1px solid #E5E7EB;\">" + periodeLabel + "</td></tr><tr><td style=\"padding:8px 0;color:#6B7280;font-size:13px;\">Email client</td><td style=\"padding:8px 0;font-weight:600;font-size:13px;\">" + (emailSent ? "✓ Envoyé" : "✗ Échec") + "</td></tr></table><p style=\"color:#9CA3AF;font-size:11px;margin-top:16px;\">Envoyé depuis Rylia Dashboard</p></div>"
+                })
+            });
+        } catch(e) {
+            console.error("Admin confirm error:", e);
+        }
+    }
+
+    function esc(s) { return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+
+</script>
+
+
+<div class="toast" id="toast"></div>
+</body>
+</html>
