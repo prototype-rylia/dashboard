@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rylia - Connexion</title>
+    <link rel="icon" type="image/png" href="logo-rylia.png">
+    <style>
+        /* --- REPRISE DE TA DA RYLIA --- */
+        :root {
+            --primary-orange: #FF6B00; 
+            --dark-orange: #E56000;
+            --text-dark: #1a1a1a;
+            --text-light: #444;
+            --bg-light: #f9f9f9;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        /* --- CONTENEUR DE CONNEXION --- */
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+        }
+
+        .login-card {
+            background: white;
+            padding: 40px 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            border-top: 4px solid var(--primary-orange);
+            text-align: center;
+        }
+
+        .brand-name {
+            font-weight: 800;
+            font-size: 2.2rem;
+            color: var(--primary-orange);
+            letter-spacing: -1px;
+            margin-bottom: 10px;
+        }
+
+        .login-subtitle {
+            color: var(--text-light);
+            font-size: 0.95rem;
+            margin-bottom: 30px;
+        }
+
+        /* --- FORMULAIRE --- */
+        .form-group {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            color: var(--text-dark);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px;
+            border: 1.5px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary-orange);
+            box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.1);
+        }
+
+        .btn-submit {
+            width: 100%;
+            background-color: var(--primary-orange);
+            color: white;
+            border: none;
+            padding: 14px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            margin-top: 10px;
+        }
+
+        .btn-submit:hover {
+            background-color: var(--dark-orange);
+        }
+
+        .btn-submit:active {
+            transform: scale(0.98);
+        }
+
+        /* --- MESSAGES D'ERREUR --- */
+        #error-msg {
+            color: #dc3545;
+            font-size: 0.9rem;
+            margin-top: 15px;
+            font-weight: 600;
+            display: none;
+            background: #ffe6e6;
+            padding: 10px;
+            border-radius: 6px;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 25px;
+            color: var(--text-light);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.3s;
+        }
+
+        .back-link:hover {
+            color: var(--primary-orange);
+        }
+
+        .forgot-link {
+            display: block;
+            text-align: right;
+            font-size: 0.85rem;
+            color: var(--text-light);
+            text-decoration: none;
+            margin-top: 6px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .forgot-link:hover { color: var(--primary-orange); }
+
+        #reset-msg {
+            font-size: 0.85rem;
+            margin-top: 12px;
+            font-weight: 600;
+            display: none;
+            padding: 10px;
+            border-radius: 6px;
+        }
+
+        #reset-msg.ok {
+            color: #065F46;
+            background: #ECFDF5;
+        }
+
+        #reset-msg.err {
+            color: #dc3545;
+            background: #ffe6e6;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <div class="login-card">
+            <div class="brand-name">Rylia.</div>
+            <p class="login-subtitle">Connectez-vous à votre espace</p>
+
+            <div class="form-group">
+                <label for="email">Adresse Email</label>
+                <input type="email" id="email" class="form-input" placeholder="exemple@email.com" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Mot de passe</label>
+                <input type="password" id="password" class="form-input" placeholder="Votre mot de passe" required>
+            </div>
+
+            <button class="btn-submit" id="login-btn" onclick="loginUser()">Se connecter</button>
+
+            <a class="forgot-link" onclick="resetPassword()">Mot de passe oublié ?</a>
+
+            <div id="error-msg">Identifiants incorrects. Veuillez réessayer.</div>
+            <div id="reset-msg"></div>
+        </div>
+        
+        <div style="text-align: center;">
+            <a href="index.html" class="back-link">← Retour au site</a>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // 1. TA CONFIGURATION FIREBASE (À remplacer par tes vraies clés)
+        const firebaseConfig = {
+          apiKey: "AIzaSyDzd25u43H8emNyh3zVSybFT5xp_APB3HU",
+          authDomain: "dash-board-rylia.firebaseapp.com",
+          projectId: "dash-board-rylia",
+          storageBucket: "dash-board-rylia.firebasestorage.app",
+          messagingSenderId: "404463950207",
+          appId: "1:404463950207:web:4691e48ab3abaa1285e24a"
+        };
+
+        // Initialisation
+        const app  = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db   = getFirestore(app);
+
+        /**
+         * Lit le rôle de l'utilisateur dans Firestore et redirige vers
+         * admin.html si role === "admin", sinon vers client.html.
+         */
+        async function redirectByRole(user) {
+            try {
+                const snap = await getDoc(doc(db, "users", user.uid));
+                if (snap.exists() && snap.data().role === "admin") {
+                    window.location.href = "admin.html";
+                } else {
+                    window.location.href = "client.html";
+                }
+            } catch (e) {
+                console.error("redirectByRole:", e);
+                // Fallback prudent : on renvoie vers l'espace client
+                window.location.href = "client.html";
+            }
+        }
+
+        // --- SÉCURITÉ : Vérifier si l'utilisateur est DÉJÀ connecté ---
+        // S'il l'est, on le redirige directement vers le bon espace selon son rôle
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                redirectByRole(user);
+            }
+        });
+
+        // --- FONCTION DE CONNEXION ---
+        window.loginUser = async function() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorMsg = document.getElementById('error-msg');
+            const loginBtn = document.getElementById('login-btn');
+
+            // Petite sécurité si les champs sont vides
+            if(!email || !password) {
+                errorMsg.innerText = "Veuillez remplir tous les champs.";
+                errorMsg.style.display = "block";
+                return;
+            }
+
+            // Animation d'attente sur le bouton
+            loginBtn.innerText = "Connexion...";
+            loginBtn.style.opacity = "0.8";
+
+            try {
+                // Tentative de connexion Firebase
+                await signInWithEmailAndPassword(auth, email, password);
+                // Si ça réussit, le onAuthStateChanged au-dessus va s'activer et rediriger !
+                
+            } catch (error) {
+                // Si ça échoue (mauvais mot de passe, etc.)
+                console.error("Erreur de connexion:", error.code);
+                
+                // Personnalisation du message d'erreur selon le retour Firebase
+                if(error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                    errorMsg.innerText = "Email ou mot de passe incorrect.";
+                } else if (error.code === 'auth/invalid-email') {
+                    errorMsg.innerText = "Le format de l'email est invalide.";
+                } else {
+                    errorMsg.innerText = "Une erreur est survenue. Réessayez.";
+                }
+                
+                errorMsg.style.display = "block";
+                loginBtn.innerText = "Se connecter";
+                loginBtn.style.opacity = "1";
+            }
+        }
+
+        // --- FONCTION MOT DE PASSE OUBLIÉ ---
+        window.resetPassword = async function() {
+            const email    = document.getElementById('email').value.trim();
+            const resetMsg = document.getElementById('reset-msg');
+            const errorMsg = document.getElementById('error-msg');
+            errorMsg.style.display = "none";
+
+            if (!email) {
+                resetMsg.className = "err";
+                resetMsg.innerText = "Saisissez votre email ci-dessus, puis cliquez sur « Mot de passe oublié ».";
+                resetMsg.style.display = "block";
+                resetMsg.className = "";
+                resetMsg.classList.add("err");
+                return;
+            }
+
+            try {
+                await sendPasswordResetEmail(auth, email);
+                resetMsg.innerText = "Un email de réinitialisation a été envoyé à " + email + ". Vérifiez votre boîte de réception.";
+                resetMsg.className = "";
+                resetMsg.classList.add("ok");
+                resetMsg.style.display = "block";
+            } catch(e) {
+                console.error("Reset:", e);
+                if (e.code === "auth/user-not-found" || e.code === "auth/invalid-email") {
+                    resetMsg.innerText = "Aucun compte trouvé avec cet email.";
+                } else {
+                    resetMsg.innerText = "Erreur lors de l'envoi. Réessayez.";
+                }
+                resetMsg.className = "";
+                resetMsg.classList.add("err");
+                resetMsg.style.display = "block";
+            }
+        }
+
+        // Permettre de se connecter en appuyant sur la touche "Entrée"
+        document.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                window.loginUser();
+            }
+        });
+    </script>
+</body>
+</html>
